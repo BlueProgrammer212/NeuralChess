@@ -7,7 +7,7 @@ constexpr std::size_t NUM_OF_SQUARES = 128;
 
 constexpr const char* ascii_pieces = ".KQBNRPkqbnrp";
 
-enum Sides { white, black };
+enum Sides { WHITE, BLACK };
 
 //The order depends on the Spritesheet.
 enum Pieces : int {e, K, Q, B, N, R, P, k, q, b, n, r, p, o};

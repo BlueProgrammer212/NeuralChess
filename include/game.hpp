@@ -1,7 +1,13 @@
-#include "Globals.hpp"
+#pragma once
+
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <memory>
+
+#include "globals.hpp"
+#include "texture.hpp"
+#include "interface.hpp"
+#include "move.hpp"
 
 class Game {
   public:
@@ -17,4 +23,5 @@ class Game {
 
   private:
     bool m_running;
+    std::unique_ptr<Interface> m_interface{};
 };

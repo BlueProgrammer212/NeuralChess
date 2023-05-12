@@ -1,31 +1,79 @@
+#pragma once
+
 #include <iostream>
 #include <vector>
 #include <array>
 
-constexpr std::uint8_t BOARD_SIZE = 8;
-constexpr std::size_t NUM_OF_SQUARES = 128;
+namespace Bitboard {
+constexpr std::uint8_t BOARD_SIZE = 7;
+constexpr std::size_t NUM_OF_SQUARES = 64;
 
 constexpr const char* ascii_pieces = ".KQBNRPkqbnrp";
 
-enum Sides { WHITE, BLACK };
-
-//The order depends on the Spritesheet.
-enum Pieces : int {e, K, Q, B, N, R, P, k, q, b, n, r, p, o};
-
-enum Squares : int {
-    a8 = 0,   b8, c8, d8, e8, f8, g8, h8,
-    a7 = 16,  b7, c7, d7, e7, f7, g7, h7,
-    a6 = 32,  b6, c6, d6, e6, f6, g6, h6,
-    a5 = 48,  b5, c5, d5, e5, f5, g5, h5,
-    a4 = 64,  b4, c4, d4, e4, f4, g4, h4,
-    a3 = 80,  b3, c3, d3, e3, f3, g3, h3,
-    a2 = 96,  b2, c2, d2, e2, f2, g2, h2,
-    a1 = 112, b1, c1, d1, e1, f1, g1, h1, no_sq
+enum Sides { 
+    BLACK = 1 << 0, 
+    WHITE = 1 << 1 
 };
 
-enum Castle : int {
+//The order depends on the Spritesheet.
+enum Pieces : int {e, K, Q, B, N, R, P, k, q, b, n, r, p};
+
+//Little-endian file-rank mapping enumeration.
+enum Squares : int 
+{
+    a1, a2, a3, a4, a5, a6, a7, a8,
+    b1, b2, b3, b4, b5, b6, b7, b8,
+    c1, c2, c3, c4, c5, c6, c7, c8,
+    d1, d2, d3, d4, d5, d6, d7, d8,
+    e1, e2, e3, e4, e5, e6, e7, e8,
+    f1, f2, f3, f4, f5, f6, f7, f8,
+    g1, g2, g3, g4, g5, g6, g7, g8,
+    h1, h2, h3, h4, h5, h6, h7, h8, no_sq
+};
+
+enum Castle : int 
+{
     WHITE_SHORT_CASTLE  = 1 << 0,
     WHITE_LONG_CASTLE   = 1 << 1,
     BLACK_SHORT_CASTLE  = 1 << 2,
     BLACK_LONG_CASTLE   = 1 << 3
 };
+
+//Least significant file mapping.
+inline int toLSF(int file, int rank) {
+    return (rank << 3) + file;
+}
+
+//Least significant rank mapping.
+inline int toLSR(int file, int rank) {
+    return (file << 3) + rank;
+}
+
+//Least significant file to coordinates.
+inline SDL_Point lsfToCoord(int lsf) {
+    return SDL_Point{lsf & BOARD_SIZE, lsf >> 3};
+}
+
+//Least significant rank to coordinates.
+inline SDL_Point lsrToCoord(int lsr) {
+    return SDL_Point{lsr & BOARD_SIZE, lsr >> 3};
+}
+
+inline int convertEndianess(int file, int rank) {
+    int new_file = file ^ BOARD_SIZE;
+    int new_rank = rank ^ 56;
+
+    int target_square = toLSF(new_file, new_rank);
+
+    return target_square;
+}
+
+inline int convertEndianess(int lsf) {
+    const auto coords = lsfToCoord(lsf);
+    return toLSF(coords.x ^ BOARD_SIZE, coords.y ^ 56);
+}
+
+inline int getColor(int type) {
+    return (type > 6 ? Sides::BLACK : Sides::WHITE);
+}
+}

@@ -9,19 +9,20 @@
 #include "interface.hpp"
 #include "move.hpp"
 
-class Game {
-  public:
-    Game();
-    ~Game();
+class Game
+{
+public:
+  Game();
+  ~Game();
 
-    void init(const int width, const int height);
-    void update();
-    void render();
-    void events();
+  void init(const int width, const int height);
+  void update();
+  void render();
+  void events();
 
-    inline bool isRunning() const { return m_running; }
+  inline bool isRunning() const { return m_running; }
 
-  private:
-    bool m_running;
-    std::unique_ptr<Interface> m_interface{};
+private:
+  bool m_running;
+  std::unique_ptr<Interface> m_interface{};
 };

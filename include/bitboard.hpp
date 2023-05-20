@@ -60,7 +60,9 @@ inline int toLSR(int file, int rank, bool should_flip = SHOULD_FLIP) noexcept
 //Check if a piece is a pawn, regardless of their color.
 inline bool isPawn(int type) { return type == Pieces::P || type == Pieces::p; }
 
-inline bool isSlidingPiece(int type) { return type == Pieces::B || type == Pieces::b; }
+inline bool isSlidingPiece(int type) { return type == Pieces::B || type == Pieces::b ||
+                                              type == Pieces::R || type == Pieces::r ||
+                                              type == Pieces::Q || type == Pieces::q; }
 
 //Convert little-endian file-rank mapping to big-endian file-rank and vice versa.
 inline int flipVertically(int lsf) { return lsf ^ 0x00038; }
@@ -94,5 +96,11 @@ inline int addRank(int lsf, int rank, bool should_flip = SHOULD_FLIP) {
     int final_lsf = (should_flip ? flipVertically(lsf) : lsf);
     const auto coords = lsfToCoord(final_lsf);
     return toLSF(coords.x, coords.y + rank);
+}
+
+inline int addFile(int lsf, int file, bool should_flip = SHOULD_FLIP) {
+    int final_lsf = (should_flip ? flipVertically(lsf) : lsf);
+    const auto coords = lsfToCoord(final_lsf);
+    return toLSF(coords.x + file, coords.y);
 }
 }

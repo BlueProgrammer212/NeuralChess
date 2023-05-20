@@ -10,12 +10,12 @@ class Interface
 public:
     Interface();
     ~Interface();
-    
-    //This is for the buttons.
+
+    // This is for the buttons.
     static int AABB(int x, int y);
 
     void drop(int lsf, int old_lsf, int width, int height);
-    void drag(int width, int height); 
+    void drag(int width, int height);
 
 private:
     int mouse_position_x;

@@ -3,11 +3,15 @@
 #include <iostream>
 #include <vector>
 #include <array>
+#include <bitset>
 
 namespace Bitboard {
 constexpr std::uint8_t BOARD_SIZE = 7;
 constexpr std::size_t NUM_OF_SQUARES = 64;
 
+constexpr bool SHOULD_FLIP = false;
+
+//This is used for the FEN parser and the PGN notation.
 constexpr const char* ascii_pieces = ".KQBNRPkqbnrp";
 
 enum Sides { 
@@ -39,41 +43,56 @@ enum Castle : int
     BLACK_LONG_CASTLE   = 1 << 3
 };
 
-//Least significant file mapping.
-inline int toLSF(int file, int rank) {
-    return (rank << 3) + file;
+//Least significant file mapping. 
+inline int toLSF(int file, int rank, bool should_flip = SHOULD_FLIP) noexcept
+{ 
+    int lsf = (rank << 3) + file;
+    return (should_flip ? lsf ^ 0b111000 : lsf);
 }
 
 //Least significant rank mapping.
-inline int toLSR(int file, int rank) {
-    return (file << 3) + rank;
+inline int toLSR(int file, int rank, bool should_flip = SHOULD_FLIP) noexcept
+{ 
+    int lsr = (file << 3) + rank;
+    return (should_flip ? lsr ^ 0b111000 : lsr); 
+}
+
+//Check if a piece is a pawn, regardless of their color.
+inline bool isPawn(int type) { return type == Pieces::P || type == Pieces::p; }
+
+inline bool isSlidingPiece(int type) { return type == Pieces::B || type == Pieces::b; }
+
+//Convert little-endian file-rank mapping to big-endian file-rank and vice versa.
+inline int flipVertically(int lsf) { return lsf ^ 0x00038; }
+
+//Convert a little-endian position to a big-endian LSF and vice versa.
+inline int flipVertically(int file, int rank)
+{
+    const int lsf = toLSF(file, rank); 
+    return lsf ^ 0b111000;
 }
 
 //Least significant file to coordinates.
-inline SDL_Point lsfToCoord(int lsf) {
-    return SDL_Point{lsf & BOARD_SIZE, lsf >> 3};
+[[nodiscard]] inline const SDL_Point lsfToCoord(int lsf, bool should_flip = SHOULD_FLIP) noexcept 
+{ 
+    int final_lsf = (should_flip ? flipVertically(lsf) : lsf);
+    return {final_lsf & BOARD_SIZE, final_lsf >> 3}; 
 }
 
 //Least significant rank to coordinates.
-inline SDL_Point lsrToCoord(int lsr) {
-    return SDL_Point{lsr & BOARD_SIZE, lsr >> 3};
-}
-
-inline int convertEndianess(int file, int rank) {
-    int new_file = file ^ BOARD_SIZE;
-    int new_rank = rank ^ 56;
-
-    int target_square = toLSF(new_file, new_rank);
-
-    return target_square;
-}
-
-inline int convertEndianess(int lsf) {
-    const auto coords = lsfToCoord(lsf);
-    return toLSF(coords.x ^ BOARD_SIZE, coords.y ^ 56);
+[[nodiscard]] inline const SDL_Point lsrToCoord(int lsr, int should_flip = SHOULD_FLIP) noexcept
+{
+    int final_lsr = (should_flip ? flipVertically(lsr) : lsr);
+    return {final_lsr >> 3, final_lsr & BOARD_SIZE}; 
 }
 
 inline int getColor(int type) {
     return (type > 6 ? Sides::BLACK : Sides::WHITE);
+}
+
+inline int addRank(int lsf, int rank, bool should_flip = SHOULD_FLIP) {
+    int final_lsf = (should_flip ? flipVertically(lsf) : lsf);
+    const auto coords = lsfToCoord(final_lsf);
+    return toLSF(coords.x, coords.y + rank);
 }
 }

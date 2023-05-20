@@ -3,7 +3,9 @@
 using namespace Bitboard;
 
 namespace Globals {
-SDL_Window* window = nullptr;
+std::vector<SDL_Window*> window_set = {};
+int window_count = 0;
+
 SDL_Renderer* renderer = nullptr;
 SDL_Texture* texture = nullptr;
 
@@ -23,7 +25,10 @@ std::vector<int> bitboard = {
     R, N, B, Q, K, B, N, R
 };
 
+std::bitset<Bitboard::NUM_OF_SQUARES> move_bitset;
+
 std::vector<int> pseudolegal_moves = {};
+std::vector<int> move_hints = {};
 
 std::vector<SDL_Rect> quad_vector = {};
 
@@ -43,4 +48,14 @@ int castling = WHITE_SHORT_CASTLE |
 SDL_Point current_position = SDL_Point{0, 0};
 
 int selected_lsf = Squares::no_sq;
+
+void addWindow(const char* title, int width, int height) {
+    window_set.push_back(SDL_CreateWindow(
+        title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
+        width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS));
+
+    if (window_set.at(window_count++) == nullptr) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create the window");
+    }
+}
 } // namespace Globals

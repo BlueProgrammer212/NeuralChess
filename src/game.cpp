@@ -11,7 +11,10 @@ Game::Game()
 
 Game::~Game()
 {
-    SDL_DestroyWindow(window);
+    for (SDL_Window* window : window_set) {
+        SDL_DestroyWindow(window);
+    }
+
     SDL_DestroyRenderer(renderer);
     SDL_Quit();
 }
@@ -19,23 +22,13 @@ Game::~Game()
 void Game::init(const int width, const int height) 
 {
     //Initialize window.
-    window = SDL_CreateWindow("Chess Engine", SDL_WINDOWPOS_CENTERED,
-                              SDL_WINDOWPOS_CENTERED, width, height,
-                              SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN);
-
-    if (window == nullptr) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "Failed to create the window");
-        m_running = false;
-    }
+    addWindow("NeuralChess", width, height);
 
     //Initialize the renderer.
-    renderer = SDL_CreateRenderer(
-        window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(window_set[0], -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
 
     if (renderer == nullptr) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "Failed to create the renderer.");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create the renderer.");
         m_running = false;
     }
 
@@ -53,9 +46,7 @@ void Game::init(const int width, const int height)
     //Precalculate chess board squares for the UI.
     for (int FILE = 0; FILE < (Bitboard::BOARD_SIZE + 1); ++FILE) {
     for (int RANK = 0; RANK < (Bitboard::BOARD_SIZE + 1); ++RANK) {
-        SDL_Rect rect = {FILE * BOX_WIDTH, RANK * BOX_HEIGHT, 
-                         BOX_WIDTH, BOX_HEIGHT};
-
+        SDL_Rect rect = {FILE * BOX_WIDTH, RANK * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
         quad_vector.push_back(rect);
     }
     }
@@ -87,25 +78,31 @@ void Game::render()
     //Highlight the selected quad.
     if (selected_lsf != Bitboard::no_sq) {
         const auto& pos = Bitboard::lsfToCoord(selected_lsf);
-        SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT,
-                         BOX_WIDTH, BOX_HEIGHT};
+        SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
 
         SDL_SetRenderDrawColor(renderer, 255, 255, 0, 125);
 
         SDL_RenderFillRect(renderer, &dest);
     }
 
+    //Render hints.
+    for (int lsf : move_hints) {
+        const auto& pos = Bitboard::lsfToCoord(lsf);
+
+        SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
+        
+        SDL_SetRenderDrawColor(renderer, 255, 0, 0, 125);
+        SDL_RenderFillRect(renderer, &dest);
+    }
+
     //Highlight the last move.
-    if (last_move.x != Bitboard::no_sq &&
-        last_move.y != Bitboard::no_sq) {
+    if (last_move.x != Bitboard::no_sq && last_move.y != Bitboard::no_sq) {
         const auto& initial_pos = Bitboard::lsfToCoord(last_move.x);
         const auto& pos = Bitboard::lsfToCoord(last_move.y);
 
-        SDL_Rect dest = {initial_pos.x * BOX_WIDTH, initial_pos.y * BOX_HEIGHT,
-                        BOX_WIDTH, BOX_HEIGHT};
+        SDL_Rect dest = {initial_pos.x * BOX_WIDTH, initial_pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
     
-        SDL_Rect final_dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT,
-                        BOX_WIDTH, BOX_HEIGHT};
+        SDL_Rect final_dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
 
         SDL_SetRenderDrawColor(renderer, 200, 200, 0, 125);
         SDL_RenderFillRect(renderer, &dest);
@@ -127,7 +124,7 @@ void Game::events()
     SDL_Event event;
 
     while (SDL_PollEvent(&event)) {
-        switch (event.type) {
+        switch (event.window.type) {
         case SDL_QUIT:
             m_running = false;
             break;
@@ -135,8 +132,11 @@ void Game::events()
             int new_lsf = Interface::AABB(event.button.y, event.button.x);
     
             if (selected_lsf == Bitboard::no_sq && Globals::bitboard[new_lsf] != Bitboard::e) {
-                selected_lsf = new_lsf;
+                selected_lsf = (Bitboard::SHOULD_FLIP ? new_lsf ^ 0x38 : new_lsf);
             } else if (selected_lsf != Bitboard::no_sq) {
+                //Reset the pseudolegal moves.
+                Globals::move_hints.clear();
+                
                 m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT);
                 selected_lsf = Bitboard::no_sq;
             }

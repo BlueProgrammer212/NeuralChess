@@ -17,6 +17,8 @@ public:
     void drop(int lsf, int old_lsf, int width, int height);
     void drag(int width, int height);
 
+    int lerp(int a, int b, int t);
+
 private:
     int mouse_position_x;
     int mouse_position_y;

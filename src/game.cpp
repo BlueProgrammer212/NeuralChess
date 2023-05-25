@@ -34,6 +34,8 @@ void Game::init(const int width, const int height) {
   //Load the chess piece texture atlas.
   TextureManager::LoadTexture("../../res/atlas.png");
 
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+
   //Save the texture dimensions.
   TextureManager::QueryTexture(6, 2);
 
@@ -51,7 +53,11 @@ void Game::init(const int width, const int height) {
   side |= Bitboard::WHITE;
 }
 
-void Game::update() {}
+void Game::update() {
+  time += 1;
+  delta_time = time - last_time;
+  last_time = time;
+}
 
 void Game::render() {
   SDL_RenderClear(renderer);
@@ -81,7 +87,7 @@ void Game::render() {
   //Render hints.
   for (int lsf : move_hints) {
     const auto& pos = Bitboard::lsfToCoord(lsf);
-
+    
     SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 125);
@@ -126,10 +132,9 @@ void Game::events() {
         if (selected_lsf == Bitboard::no_sq && Globals::bitboard[new_lsf] != Bitboard::e) {
           selected_lsf = (Bitboard::SHOULD_FLIP ? new_lsf ^ 0x38 : new_lsf);
         } else if (selected_lsf != Bitboard::no_sq) {
-          //Reset the pseudolegal moves.
-          Globals::move_hints.clear();
-
           m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT);
+          //Reset the hint array.
+          Globals::move_hints.clear();
           selected_lsf = Bitboard::no_sq;
         }
     }

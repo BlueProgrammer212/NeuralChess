@@ -25,6 +25,17 @@ std::vector<int> bitboard = {
     R, N, B, Q, K, B, N, R
 };
 
+std::vector<int> opponent_occupancy = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0
+};
+
 std::bitset<Bitboard::NUM_OF_SQUARES> move_bitset;
 
 std::vector<int> pseudolegal_moves = {};
@@ -33,8 +44,16 @@ std::vector<int> move_hints = {};
 std::vector<SDL_Rect> quad_vector = {};
 
 int side = 0; 
+std::vector<int> castling_square = {-1, -1};
 
 SDL_Point last_move = SDL_Point{Squares::no_sq, Squares::no_sq};
+
+double recorded_time = 0.0;
+
+SDL_Point linear_interpolant = {0, 0};
+SDL_Point scaled_linear_interpolant = {0, 0};
+
+double time = 0.0;
 
 //Define the En Passant Square Position.
 int en_passant = Squares::no_sq;

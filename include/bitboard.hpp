@@ -35,6 +35,7 @@ enum Squares : int
     h1, h2, h3, h4, h5, h6, h7, h8, no_sq
 };
 
+//////////////CASTLING RIGHTS///////////////
 enum Castle : int 
 {
     WHITE_SHORT_CASTLE  = 1 << 0,
@@ -42,8 +43,9 @@ enum Castle : int
     BLACK_SHORT_CASTLE  = 1 << 2,
     BLACK_LONG_CASTLE   = 1 << 3
 };
+///////////////////////////////////////////
 
-//Least significant file mapping. 
+//Least significant file mapping.
 inline int toLSF(int file, int rank, bool should_flip = SHOULD_FLIP) noexcept
 { 
     int lsf = (rank << 3) + file;
@@ -57,12 +59,25 @@ inline int toLSR(int file, int rank, bool should_flip = SHOULD_FLIP) noexcept
     return (should_flip ? lsr ^ 0b111000 : lsr); 
 }
 
-//Check if a piece is a pawn, regardless of their color.
-inline bool isPawn(int type) { return type == Pieces::P || type == Pieces::p; }
+inline bool isPawn(int type) noexcept { 
+    return type == Pieces::P || type == Pieces::p; 
+}
 
-inline bool isSlidingPiece(int type) { return type == Pieces::B || type == Pieces::b ||
-                                              type == Pieces::R || type == Pieces::r ||
-                                              type == Pieces::Q || type == Pieces::q; }
+inline bool isKing(int type) noexcept {
+    return type == Pieces::K || type == Pieces::k;
+}
+
+//////////////SLIDING PIECES//////////////
+inline bool isBishop(int type) noexcept { return type == Pieces::B || type == Pieces::b; }
+
+inline bool isRook(int type) noexcept { return type == Pieces::R || type == Pieces::r; }
+
+inline bool isQueen(int type) noexcept { return type == Pieces::Q || type == Pieces::q; }
+
+inline bool isSlidingPiece(int type) noexcept { 
+    return isBishop(type) || isRook(type) || isQueen(type); 
+}
+//////////////////////////////////////////
 
 //Convert little-endian file-rank mapping to big-endian file-rank and vice versa.
 inline int flipVertically(int lsf) { return lsf ^ 0x00038; }
@@ -92,15 +107,10 @@ inline int getColor(int type) {
     return (type > 6 ? Sides::BLACK : Sides::WHITE);
 }
 
+//Increment the ranks for the LSF. Add 8 to the LSF depending on how much ranks.
 inline int addRank(int lsf, int rank, bool should_flip = SHOULD_FLIP) {
     int final_lsf = (should_flip ? flipVertically(lsf) : lsf);
     const auto coords = lsfToCoord(final_lsf);
     return toLSF(coords.x, coords.y + rank);
-}
-
-inline int addFile(int lsf, int file, bool should_flip = SHOULD_FLIP) {
-    int final_lsf = (should_flip ? flipVertically(lsf) : lsf);
-    const auto coords = lsfToCoord(final_lsf);
-    return toLSF(coords.x + file, coords.y);
 }
 }

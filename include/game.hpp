@@ -23,6 +23,10 @@ public:
   inline bool isRunning() const { return m_running; }
 
 private:
+  int time;
+  int last_time;
+  int delta_time;
+
   bool m_running;
   std::unique_ptr<Interface> m_interface{};
 };

@@ -19,6 +19,7 @@ namespace Globals
     extern SDL_Point current_position;
 
     extern int side;
+    extern double time;
 
     extern std::vector<int> bitboard;
 
@@ -29,9 +30,17 @@ namespace Globals
 
     extern std::vector<SDL_Rect> quad_vector;
 
+    extern double recorded_time;
+    extern SDL_Point linear_interpolant;
+    extern SDL_Point scaled_linear_interpolant;
+
     extern int en_passant;
     extern int castling;
     extern int selected_lsf;
+
+    extern std::vector<int> opponent_occupancy;
+
+    extern std::vector<int> castling_square;
 
     void addWindow(const char *title, int width, int height);
     extern int window_count;

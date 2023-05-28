@@ -87,8 +87,8 @@ void Game::render() {
   //Render hints.
   for (int lsf : move_hints) {
     const auto& pos = Bitboard::lsfToCoord(lsf);
-    
-    SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
+
+    const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
 
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 125);
     SDL_RenderFillRect(renderer, &dest);
@@ -99,9 +99,9 @@ void Game::render() {
     const auto& initial_pos = Bitboard::lsfToCoord(last_move.x);
     const auto& pos = Bitboard::lsfToCoord(last_move.y);
 
-    SDL_Rect dest = {initial_pos.x * BOX_WIDTH, initial_pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
-
-    SDL_Rect final_dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
+    const SDL_Rect dest = {initial_pos.x * BOX_WIDTH, initial_pos.y * BOX_HEIGHT, BOX_WIDTH,
+                           BOX_HEIGHT};
+    const SDL_Rect final_dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
 
     SDL_SetRenderDrawColor(renderer, 200, 200, 0, 125);
     SDL_RenderFillRect(renderer, &dest);

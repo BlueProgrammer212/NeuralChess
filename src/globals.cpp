@@ -46,6 +46,8 @@ std::vector<SDL_Rect> quad_vector = {};
 int side = 0; 
 std::vector<int> castling_square = {-1, -1};
 
+std::vector<int> max_squares = {};
+
 SDL_Point last_move = SDL_Point{Squares::no_sq, Squares::no_sq};
 
 double recorded_time = 0.0;
@@ -59,10 +61,10 @@ double time = 0.0;
 int en_passant = Squares::no_sq;
 
 //Castling Rights (1111 => 15)
-int castling = WHITE_SHORT_CASTLE |
-               WHITE_LONG_CASTLE  |
-               BLACK_SHORT_CASTLE |
-               BLACK_LONG_CASTLE;
+int castling = SHORT_CASTLE      |
+               LONG_CASTLE       |
+               SHORT_CASTLE << 2 |
+               LONG_CASTLE  << 2;
 
 SDL_Point current_position = SDL_Point{0, 0};
 

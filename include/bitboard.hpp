@@ -7,7 +7,8 @@
 
 namespace Bitboard {
 constexpr std::uint8_t BOARD_SIZE = 7;
-constexpr std::size_t NUM_OF_SQUARES = 64;
+constexpr int NUM_OF_SQUARES = 64;
+constexpr int MAX_SQUARES_TO_EDGE = Bitboard::BOARD_SIZE + 1;
 
 constexpr bool SHOULD_FLIP = false;
 
@@ -36,12 +37,11 @@ enum Squares : int
 };
 
 //////////////CASTLING RIGHTS///////////////
+//For black, left-shift 2 for each constants.
 enum Castle : int 
 {
-    WHITE_SHORT_CASTLE  = 1 << 0,
-    WHITE_LONG_CASTLE   = 1 << 1,
-    BLACK_SHORT_CASTLE  = 1 << 2,
-    BLACK_LONG_CASTLE   = 1 << 3
+    SHORT_CASTLE  = 1 << 0, //0001
+    LONG_CASTLE   = 1 << 1, //0010
 };
 ///////////////////////////////////////////
 

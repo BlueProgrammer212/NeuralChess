@@ -26,7 +26,7 @@ namespace Globals
     extern std::vector<int> pseudolegal_moves;
     extern std::vector<int> move_hints;
 
-    extern std::bitset<Bitboard::NUM_OF_SQUARES> move_bitset;
+    extern std::bitset<64> move_bitset;
 
     extern std::vector<SDL_Rect> quad_vector;
 
@@ -41,6 +41,7 @@ namespace Globals
     extern std::vector<int> opponent_occupancy;
 
     extern std::vector<int> castling_square;
+    extern std::vector<int> max_squares;
 
     void addWindow(const char *title, int width, int height);
     extern int window_count;

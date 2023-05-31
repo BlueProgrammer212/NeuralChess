@@ -148,7 +148,7 @@ namespace MoveGenerator
 
                 if (notEmpty(dt_lsf))
                 {
-                    if (canCapture(dt_lsf) || for_occupied_square)
+                    if (canCapture(dt_lsf, for_occupied_square) || for_occupied_square)
                     {
                         moveFunc(dt_lsf);
                     }

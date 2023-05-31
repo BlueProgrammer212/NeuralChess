@@ -8,15 +8,19 @@ Interface::~Interface() {
   quad_vector.clear();
 }
 
-void Interface::drop(int lsf, int old_lsf, int width, int height) {
+void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_hints) {
   //Check for friendly pieces.
-  int selected_piece = Bitboard::getColor(bitboard[old_lsf]);
-  int target_lsf = Bitboard::getColor(bitboard[lsf]);
+  const int selected_piece = Bitboard::getColor(bitboard[old_lsf]);
+  const int target_lsf = Bitboard::getColor(bitboard[lsf]);
 
-  if ((selected_piece != target_lsf || bitboard[lsf] == Bitboard::Pieces::e) &&
-      selected_piece == side) {
-    for (int moves : Globals::move_hints) {
-      if (lsf == moves) {
+  if (((selected_piece != target_lsf || bitboard[lsf] == Bitboard::Pieces::e) &&
+       selected_piece == side) ||
+      supress_hints) {
+
+    const int num_of_execution = supress_hints ? 1 : static_cast<int>(move_hints.size());
+
+    for (int i = 0; i < num_of_execution; ++i) {
+      if (lsf == move_hints[i] || supress_hints) {
         //Exchange turns.
         side ^= Bitboard::Sides::WHITE;
         side ^= Bitboard::Sides::BLACK;
@@ -28,19 +32,27 @@ void Interface::drop(int lsf, int old_lsf, int width, int height) {
         move_bitset[lsf] = true;
         move_bitset[old_lsf] = false;
 
+        last_ply.x = last_move.x;
+        last_ply.y = last_move.y;
+
         last_move.x = old_lsf;
         last_move.y = lsf;
 
-        for (int castling_sq : Globals::castling_square) {
-          if (lsf == castling_sq && Bitboard::isKing(bitboard[lsf])) {
-            int color = Bitboard::getColor(Globals::bitboard[lsf]);
+        if (lsf == castling_square && Bitboard::isKing(bitboard[lsf])) {
+          int color = Bitboard::getColor(Globals::bitboard[lsf]);
 
-            int new_rook =
-                (color & Bitboard::Sides::WHITE ? Bitboard::Pieces::R : Bitboard::Pieces::r);
+          int new_rook =
+              (color & Bitboard::Sides::WHITE ? Bitboard::Pieces::R : Bitboard::Pieces::r);
 
-            bitboard[lsf - 1] = Bitboard::e;
-            bitboard[castling_sq] = new_rook;
-          }
+          int dx = castling_square - old_lsf;
+
+          //Move the rook depending on which side the king castled.
+          //This is relative to the king.
+          int new_rook_delta_pos = (dx < 0 ? 1 : -1);
+          int delta_old_rook_pos = (dx < 0 ? -4 : 3);
+
+          bitboard[old_lsf + delta_old_rook_pos] = Bitboard::e;
+          bitboard[lsf + new_rook_delta_pos] = new_rook;
         }
 
         Globals::recorded_time = static_cast<double>(SDL_GetTicks());
@@ -55,13 +67,28 @@ void Interface::drop(int lsf, int old_lsf, int width, int height) {
         //Check for pawn promotions.
         MoveGenerator::pawnPromotion(lsf);
 
-        //Update occupancy squares.
-        MoveGenerator::searchForOccupiedSquares();
+        Globals::is_in_check = MoveGenerator::isInCheck(lsf);
+
+        if (supress_hints) {
+          break;
+        }
       }
     }
 
     move_hints.clear();
   }
+}
+
+void Interface::undo() {
+  bool no_previous_move =
+      last_move.x == Bitboard::Squares::no_sq || last_move.y == Bitboard::Squares::no_sq;
+
+  if (no_previous_move) {
+    std::cout << "No previous move :C\n";
+    return;
+  }
+
+  drop(last_move.x, last_move.y, BOX_WIDTH, BOX_HEIGHT, true);
 }
 
 void Interface::drag(int width, int height) {}

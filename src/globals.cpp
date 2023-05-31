@@ -13,6 +13,8 @@ SDL_Texture* texture = nullptr;
 int BOX_WIDTH = 75;
 int BOX_HEIGHT = 75;
 
+bool is_in_check = false;
+
 //Initial Position of the Board.
 std::vector<int> bitboard = {
     r, n, b, q, k, b, n, r,
@@ -25,16 +27,7 @@ std::vector<int> bitboard = {
     R, N, B, Q, K, B, N, R
 };
 
-std::vector<int> opponent_occupancy = {
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0
-};
+std::vector<int> opponent_occupancy = {};
 
 std::bitset<Bitboard::NUM_OF_SQUARES> move_bitset;
 
@@ -44,11 +37,12 @@ std::vector<int> move_hints = {};
 std::vector<SDL_Rect> quad_vector = {};
 
 int side = 0; 
-std::vector<int> castling_square = {-1, -1};
+int castling_square = 0;
 
 std::vector<int> max_squares = {};
 
 SDL_Point last_move = SDL_Point{Squares::no_sq, Squares::no_sq};
+SDL_Point last_ply = SDL_Point{Squares::no_sq, Squares::no_sq};
 
 double recorded_time = 0.0;
 

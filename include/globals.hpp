@@ -16,6 +16,8 @@ namespace Globals
     extern int BOX_HEIGHT;
 
     extern SDL_Point last_move;
+    extern SDL_Point last_ply;
+    
     extern SDL_Point current_position;
 
     extern int side;
@@ -24,9 +26,13 @@ namespace Globals
     extern std::vector<int> bitboard;
 
     extern std::vector<int> pseudolegal_moves;
+    extern std::vector<int> opponent_pseudolegal_moves;
     extern std::vector<int> move_hints;
 
-    extern std::bitset<64> move_bitset;
+    extern bool is_in_check;
+
+    constexpr std::size_t TOTAL_SQUARES = 64U;
+    extern std::bitset<TOTAL_SQUARES> move_bitset;
 
     extern std::vector<SDL_Rect> quad_vector;
 
@@ -40,7 +46,7 @@ namespace Globals
 
     extern std::vector<int> opponent_occupancy;
 
-    extern std::vector<int> castling_square;
+    extern int castling_square;
     extern std::vector<int> max_squares;
 
     void addWindow(const char *title, int width, int height);

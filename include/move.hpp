@@ -32,12 +32,10 @@ namespace MoveGenerator
         }
     }
 
-    constexpr int IS_OCCUPIED = 0b10;
-
     // Set the LSF as an "occupied square"
-    inline void setOccupiedSquare(int t_lsf) noexcept
+    inline void addOccupancySquare(int t_lsf) noexcept
     {
-        Globals::opponent_occupancy[t_lsf] |= IS_OCCUPIED;
+        Globals::opponent_occupancy.push_back(t_lsf);
     }
 
     // Only render the possible moves of the selected piece.
@@ -76,13 +74,14 @@ namespace MoveGenerator
         return Globals::bitboard[t_lsf] != Bitboard::Pieces::e;
     }
 
-    inline bool canCapture(int t_lsf)
+    inline bool canCapture(int t_lsf, bool for_occupied_square = false)
     {
-        bool is_allies = Globals::side & Bitboard::getColor(Globals::bitboard[t_lsf]);
+        int which_side = for_occupied_square ? ~Globals::side : Globals::side;
+        bool is_allies = which_side & Bitboard::getColor(Globals::bitboard[t_lsf]);
         return !is_allies && notEmpty(t_lsf);
     }
 
-    inline void generatePawnCaptures(int t_lsf, std::function<void(int)> moveFunc)
+    inline void generatePawnCaptures(int t_lsf, std::function<void(int)> moveFunc, bool for_occupied_squares)
     {
         const int pawn = Globals::bitboard[t_lsf];
 
@@ -100,7 +99,9 @@ namespace MoveGenerator
         {
             const int dt_lsf = t_lsf + OFFSETS[i];
 
-            if (canCapture(dt_lsf))
+            const int max_delta_squares = getMaxDeltaSquares(dt_lsf, t_lsf);
+
+            if ((canCapture(dt_lsf, for_occupied_squares) || for_occupied_squares) && max_delta_squares == 1)
             {
                 moveFunc(dt_lsf);
             }
@@ -129,15 +130,9 @@ namespace MoveGenerator
         return Globals::max_squares;
     }
 
-    inline void generateSlidingMoves(int t_lsf, std::function<void(int)> moveFunc,
-                                     bool for_occupied_squares)
+    inline void generateSlidingMoves(int t_lsf, std::function<void(int)> moveFunc, bool for_occupied_square)
     {
         const int sliding_piece = Globals::bitboard[t_lsf];
-
-        if (!Bitboard::isSlidingPiece(sliding_piece))
-        {
-            return;
-        }
 
         const int start_index = (Bitboard::isBishop(sliding_piece) ? 4 : 0);
         const int end_index = (Bitboard::isRook(sliding_piece) ? 4 : 8);
@@ -151,9 +146,9 @@ namespace MoveGenerator
             {
                 const int dt_lsf = target_sq * OFFSETS[i] + t_lsf;
 
-                if (notEmpty(dt_lsf) && !for_occupied_squares)
+                if (notEmpty(dt_lsf))
                 {
-                    if (canCapture(dt_lsf))
+                    if (canCapture(dt_lsf) || for_occupied_square)
                     {
                         moveFunc(dt_lsf);
                     }
@@ -166,55 +161,78 @@ namespace MoveGenerator
         }
     }
 
-    inline void checkForAdjacentPieces(int t_lsf, std::function<void(int)> moveFunc, int t_side, int color)
-    {
-        // Note: This only works for long-castling. (Castling is not yet implemented.)
-        // Get the starting positions of the rook for both sides.
-        const int side = t_side << color;
-        const int rook_lsf = side & Bitboard::Castle::LONG_CASTLE << color ? -4 : 3;
-
-        const int castling_rook = Globals::bitboard[t_lsf + rook_lsf];
-
-        // Check for adjacent pieces.
-        for (int adj_t_lsf = 1; adj_t_lsf < 4; ++adj_t_lsf)
-        {
-            const int delta_t_lsf = t_lsf - adj_t_lsf;
-
-            if (notEmpty(delta_t_lsf) || !Bitboard::isRook(castling_rook))
-            {
-                // Remove long castling rights
-                Globals::castling &= ~t_side;
-                break;
-            }
-
-            // If there's no intercepting piece, then allow castling.
-            if (adj_t_lsf == 3)
-            {
-                Globals::castling |= t_side;
-                moveFunc(t_lsf);
-            }
-        }
-    }
-
     inline void generateCastlingMove(int t_lsf, std::function<void(int)> moveFunc)
     {
+        if (Globals::is_in_check) {
+            return;
+        }
+
         const int king_color = Bitboard::getColor(Globals::bitboard[t_lsf]);
         const int shift = (king_color & Bitboard::Sides::WHITE ? 0 : 2);
+
+        int long_castle = Bitboard::Castle::LONG_CASTLE << shift;
+        int short_castle = Bitboard::Castle::SHORT_CASTLE << shift;
 
         if (Globals::move_bitset[t_lsf])
         {
             // If the king has moved, disable castling for both sides.
-            Globals::castling &= ~Bitboard::Castle::SHORT_CASTLE << shift;
-            Globals::castling &= ~Bitboard::Castle::LONG_CASTLE << shift;
+            Globals::castling &= ~long_castle;
+            Globals::castling &= ~short_castle;
 
             return;
         }
 
         // Check for pieces that may block the castle.
-        checkForAdjacentPieces(t_lsf, moveFunc, Bitboard::Castle::LONG_CASTLE, shift);
+        const int king_side_rook = Globals::bitboard[t_lsf + 3];
+        const int queen_side_rook = Globals::bitboard[t_lsf - 4];
+
+        // TODO: Refactor this into one function.
+        //  Queenside Castling (O-O-O)
+        for (int dx = 1; dx < 4; ++dx)
+        {
+            const int delta_lsf = t_lsf - dx;
+
+            const bool rook_conditions = !Bitboard::isRook(queen_side_rook) || Globals::move_bitset[t_lsf - 4];
+
+            if (notEmpty(delta_lsf) || rook_conditions)
+            {
+                // Remove long castling rights.
+                Globals::castling &= ~long_castle;
+                break;
+            }
+
+            // If there's no intercepting piece, then allow castling.
+            if (dx == 3)
+            {
+                Globals::castling |= long_castle;
+                Globals::castling_square = t_lsf - 2;
+                moveFunc(t_lsf - 2);
+            }
+        }
+
+        // King side castling (O-O)
+        for (int dx = 1; dx < 3; ++dx)
+        {
+            const int delta_lsf = t_lsf + dx;
+            const bool rook_conditions = !Bitboard::isRook(king_side_rook) || Globals::move_bitset[t_lsf + 3];
+
+            if (notEmpty(delta_lsf) || rook_conditions)
+            {
+                // Remove short castling rights.
+                Globals::castling &= ~short_castle;
+                break;
+            }
+
+            if (dx == 2)
+            {
+                Globals::castling |= short_castle;
+                Globals::castling_square = t_lsf + 2;
+                moveFunc(t_lsf + 2);
+            }
+        }
     }
 
-    inline void generateKnightMoves(int t_lsf, std::function<void(int)> moveFunc)
+    inline void generateKnightMoves(int t_lsf, std::function<void(int)> moveFunc, bool for_occupied_squares)
     {
         for (int i = KNIGHT_OFFSET_START; i < KNIGHT_OFFSET_END; ++i)
         {
@@ -227,7 +245,7 @@ namespace MoveGenerator
             const bool is_out_of_bounds = dt_lsf < 0 || dt_lsf > Bitboard::Squares::h8;
 
             // Check if the square does not contain a friendly piece.
-            const bool contains_friendly_piece = notEmpty(dt_lsf) && !canCapture(dt_lsf);
+            const bool contains_friendly_piece = notEmpty(dt_lsf) && !canCapture(dt_lsf, for_occupied_squares);
 
             if (!contains_friendly_piece && !is_out_of_bounds && max_delta_squares == 2)
             {
@@ -236,7 +254,7 @@ namespace MoveGenerator
         }
     }
 
-    inline void generateKingMoves(int t_lsf, std::function<void(int)> moveFunc)
+    inline void generateKingMoves(int t_lsf, std::function<void(int)> moveFunc, bool for_occupied_squares)
     {
         int king_moves = 0;
 
@@ -253,9 +271,25 @@ namespace MoveGenerator
             // Check if the square does not contain a friendly piece.
             const bool contains_friendly_piece = notEmpty(target_square) && !canCapture(target_square);
 
-            const bool is_occupied = Globals::opponent_occupancy[target_square] & IS_OCCUPIED;
-  
-            if (!is_occupied && !contains_friendly_piece && !is_out_of_bounds && max_delta_squares == 1)
+            // Check if the square is in the occupancy square array.
+            bool is_an_occupied_square = false;
+
+            for (int occupied_square : Globals::opponent_occupancy)
+            {
+                is_an_occupied_square = (target_square == occupied_square);
+
+                if (is_an_occupied_square)
+                {
+                    break;
+                }
+            }
+
+            if (is_an_occupied_square)
+            {
+                continue;
+            }
+
+            if ((!contains_friendly_piece || for_occupied_squares) && !is_out_of_bounds && max_delta_squares == 1)
             {
                 moveFunc(target_square);
                 king_moves++;
@@ -269,8 +303,11 @@ namespace MoveGenerator
     {
         int team = Bitboard::getColor(Globals::bitboard[t_lsf]);
 
+        bool check_side = (for_occupied_squares && team & Globals::side) 
+                        || (!for_occupied_squares && !(team & Globals::side));
+
         // Skip empty pieces.
-        if (Globals::bitboard[t_lsf] == Bitboard::Pieces::e || (!for_occupied_squares && !(team & Globals::side)))
+        if (Globals::bitboard[t_lsf] == Bitboard::Pieces::e || check_side)
         {
             return;
         }
@@ -297,7 +334,7 @@ namespace MoveGenerator
             }
 
             // Capture Offsets
-            generatePawnCaptures(t_lsf, moveFunc);
+            generatePawnCaptures(t_lsf, moveFunc, for_occupied_squares);
 
             break;
         case Bitboard::Pieces::p:
@@ -316,18 +353,18 @@ namespace MoveGenerator
             }
 
             // Capture Offsets
-            generatePawnCaptures(t_lsf, moveFunc);
+            generatePawnCaptures(t_lsf, moveFunc, for_occupied_squares);
 
             break;
         case Bitboard::Pieces::N:
-            generateKnightMoves(t_lsf, moveFunc);
+            generateKnightMoves(t_lsf, moveFunc, for_occupied_squares);
             break;
         case Bitboard::Pieces::n:
-            generateKnightMoves(t_lsf, moveFunc);
+            generateKnightMoves(t_lsf, moveFunc, for_occupied_squares);
             break;
 
         case Bitboard::Pieces::K:
-            generateKingMoves(t_lsf, moveFunc);
+            generateKingMoves(t_lsf, moveFunc, for_occupied_squares);
             if (!for_occupied_squares)
             {
                 generateCastlingMove(t_lsf, moveFunc);
@@ -335,7 +372,7 @@ namespace MoveGenerator
             break;
 
         case Bitboard::Pieces::k:
-            generateKingMoves(t_lsf, moveFunc);
+            generateKingMoves(t_lsf, moveFunc, for_occupied_squares);
             if (!for_occupied_squares)
             {
                 generateCastlingMove(t_lsf, moveFunc);
@@ -351,24 +388,69 @@ namespace MoveGenerator
 
     inline void searchForOccupiedSquares()
     {
+        // Reset the occupancy squares data.
+        Globals::opponent_occupancy.clear();
+
         for (int t_lsf = 0; t_lsf < Bitboard::Squares::h8; ++t_lsf)
         {
             const int piece_color = Bitboard::getColor(Globals::bitboard[t_lsf]);
-
-            // Reset the occupancy squares data.
-            Globals::opponent_occupancy[t_lsf] &= ~IS_OCCUPIED;
 
             if (Globals::bitboard[t_lsf] == Bitboard::Pieces::e || piece_color & Globals::side)
             {
                 continue;
             }
 
-            searchPseudoLegalMoves(t_lsf, &setOccupiedSquare, true);
+            searchPseudoLegalMoves(t_lsf, &addOccupancySquare, true);
+        }
+    }
+
+    // Scan the whole bitboard to find the king.
+    inline int getOwnKing()
+    {
+        int piece_type = (Globals::side & Bitboard::Sides::WHITE ? Bitboard::Pieces::K : Bitboard::Pieces::k);
+
+        for (int lsf = 0; lsf < Bitboard::Squares::h8; ++lsf)
+        {
+            if (Globals::bitboard[lsf] == piece_type)
+            {
+                return lsf;
+            }
+        }
+
+        return Bitboard::Squares::no_sq;
+    }
+
+    inline bool isInCheck(int t_lsf)
+    {
+        int king = getOwnKing();
+        MoveGenerator::searchForOccupiedSquares();
+
+        for (int occupied_sq : Globals::opponent_occupancy)
+        {
+            // If any squares matches with the king's LSF, then the king must in check.
+            if (occupied_sq == king)
+            {
+                std::cout << "Check!\n";
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    inline bool isPinned(int piece_lsf)
+    {
+        int king = getOwnKing();
+
+        for (int &occupied_squares : Globals::opponent_occupancy)
+        {
+            
         }
     }
 
     inline void generatePseudoLegalMoves()
     {
+        Globals::pseudolegal_moves.clear();
         for (int i = 0; i < Bitboard::Squares::h8; ++i)
         {
             if (Globals::bitboard[i] == Bitboard::Pieces::e)

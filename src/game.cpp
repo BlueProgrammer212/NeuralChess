@@ -12,6 +12,14 @@ Game::~Game() {
   }
 
   SDL_DestroyRenderer(renderer);
+
+  Globals::bitboard.clear();
+  Globals::move_bitset.reset();
+  Globals::opponent_occupancy.clear();
+
+  Globals::bitboard.shrink_to_fit();
+  Globals::opponent_occupancy.shrink_to_fit();
+
   SDL_Quit();
 }
 
@@ -42,15 +50,17 @@ void Game::init(const int width, const int height) {
   SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
   //Precalculate chess board squares for the UI.
-  for (int FILE = 0; FILE < (Bitboard::BOARD_SIZE + 1); ++FILE) {
-    for (int RANK = 0; RANK < (Bitboard::BOARD_SIZE + 1); ++RANK) {
-      SDL_Rect rect = {FILE * BOX_WIDTH, RANK * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
+  for (int file = 0; file < (Bitboard::BOARD_SIZE + 1); ++file) {
+    for (int rank = 0; rank < (Bitboard::BOARD_SIZE + 1); ++rank) {
+      SDL_Rect rect = {file * BOX_WIDTH, rank * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
       quad_vector.push_back(rect);
     }
   }
 
   //By default, it's white to move.
   side |= Bitboard::WHITE;
+
+  MoveGenerator::searchForOccupiedSquares();
 }
 
 void Game::update() {
@@ -72,6 +82,16 @@ void Game::render() {
     }
 
     SDL_RenderFillRect(renderer, &quad_vector[lsf]);
+  }
+
+  //Render the occupancy squares. (For debugging purposes.)
+  for (int lsf : opponent_occupancy) {
+    const auto& pos = Bitboard::lsfToCoord(lsf);
+
+    const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 125);
+    SDL_RenderFillRect(renderer, &dest);
   }
 
   //Highlight the selected quad.
@@ -121,22 +141,38 @@ void Game::render() {
 void Game::events() {
   SDL_Event event;
 
+  int new_lsf;
+
   while (SDL_PollEvent(&event)) {
     switch (event.window.type) {
       case SDL_QUIT:
         m_running = false;
         break;
+
       case SDL_MOUSEBUTTONDOWN:
-        int new_lsf = Interface::AABB(event.button.y, event.button.x);
+        new_lsf = Interface::AABB(event.button.y, event.button.x);
 
         if (selected_lsf == Bitboard::no_sq && Globals::bitboard[new_lsf] != Bitboard::e) {
+          //If there is no selected square, then allow the selection.
           selected_lsf = (Bitboard::SHOULD_FLIP ? new_lsf ^ 0x38 : new_lsf);
-        } else if (selected_lsf != Bitboard::no_sq) {
-          m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT);
-          //Reset the hint array.
-          Globals::move_hints.clear();
-          selected_lsf = Bitboard::no_sq;
+          break;
         }
+
+        //If there is a selected square, then drop it to the new LSF.
+        m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT);
+
+        //Reset the hint array.
+        Globals::move_hints.clear();
+        selected_lsf = Bitboard::no_sq;
+
+        break;
+
+      case SDL_KEYDOWN:
+        if (event.key.keysym.sym == SDLK_u) {
+          m_interface->undo();
+        }
+
+        break;
     }
   }
 }

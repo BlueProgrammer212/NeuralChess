@@ -15,6 +15,7 @@ If you're interested, you can visit this website: https://www.chessprogramming.o
 - [ ] Legal moves (including pins and checks)
 - [ ] Castling
 - [ ] En Passant
+- [ ] Simple GUI
 - [ ] Evaluation
 - [ ] PGN reader and "Game Review"
 - [ ] FEN parser 

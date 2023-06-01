@@ -25,7 +25,7 @@ Game::~Game() {
 
 void Game::init(const int width, const int height) {
   //Initialize window.
-  addWindow("NeuralChess", width, height);
+  addWindow("NeuralChess [DEBUG]", width, height);
 
   //Initialize the renderer.
   renderer =
@@ -36,13 +36,15 @@ void Game::init(const int width, const int height) {
     m_running = false;
   }
 
-  BOX_WIDTH = width / (Bitboard::BOARD_SIZE + 1);
-  BOX_HEIGHT = height / (Bitboard::BOARD_SIZE + 1);
+  BOX_WIDTH = 600 / (Bitboard::BOARD_SIZE + 1);
+  BOX_HEIGHT = 600 / (Bitboard::BOARD_SIZE + 1);
 
   //Load the chess piece texture atlas.
   TextureManager::LoadTexture("../../res/atlas.png");
 
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+
+  SDL_RenderSetLogicalSize(renderer, width, height);
 
   //Save the texture dimensions.
   TextureManager::QueryTexture(6, 2);
@@ -61,6 +63,8 @@ void Game::init(const int width, const int height) {
   side |= Bitboard::WHITE;
 
   MoveGenerator::searchForOccupiedSquares();
+
+  //Settings::init();
 }
 
 void Game::update() {
@@ -90,7 +94,7 @@ void Game::render() {
 
     const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
 
-    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 125);
+    SDL_SetRenderDrawColor(renderer, 75, 125, 255, 125);
     SDL_RenderFillRect(renderer, &dest);
   }
 
@@ -135,6 +139,12 @@ void Game::render() {
     TextureManager::RenderTexture(i, bitboard[i]);
   }
 
+  //Render the evaluation bar.
+  SDL_Rect black_eval = {600, 0, 25, 300};
+  SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+  SDL_RenderFillRect(renderer, &black_eval);
+  SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
   SDL_RenderPresent(renderer);
 }
 
@@ -150,6 +160,10 @@ void Game::events() {
         break;
 
       case SDL_MOUSEBUTTONDOWN:
+        if (Globals::game_state & GameState::DRAW) {
+          break;
+        }
+
         new_lsf = Interface::AABB(event.button.y, event.button.x);
 
         if (selected_lsf == Bitboard::no_sq && Globals::bitboard[new_lsf] != Bitboard::e) {
@@ -168,6 +182,10 @@ void Game::events() {
         break;
 
       case SDL_KEYDOWN:
+        if (Globals::game_state & GameState::DRAW) {
+          break;
+        }
+
         if (event.key.keysym.sym == SDLK_u) {
           m_interface->undo();
         }

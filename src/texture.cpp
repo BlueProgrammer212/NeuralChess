@@ -53,7 +53,7 @@ void TextureManager::RenderTexture(int target_square, int type) {
         SDL_Point{pos.x * Globals::BOX_WIDTH, pos.y * Globals::BOX_HEIGHT};
 
     double alpha = 1000.0;
-    Globals::time += ((double)SDL_GetTicks() - Globals::recorded_time) / alpha;
+    Globals::time += ((double)SDL_GetTicks() - Globals::elapsed_time) / alpha;
 
     int dx = scaled_destination_vector.x - Globals::scaled_linear_interpolant.x;
     int dy = scaled_destination_vector.y - Globals::scaled_linear_interpolant.y;

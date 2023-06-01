@@ -153,7 +153,9 @@ namespace MoveGenerator
                         moveFunc(dt_lsf);
                     }
 
-                    break;
+                    if (!Bitboard::isKing(Globals::bitboard[dt_lsf]) || !for_occupied_square) {
+                        break;
+                    }
                 }
 
                 moveFunc(dt_lsf);
@@ -247,7 +249,7 @@ namespace MoveGenerator
             // Check if the square does not contain a friendly piece.
             const bool contains_friendly_piece = notEmpty(dt_lsf) && !canCapture(dt_lsf, for_occupied_squares);
 
-            if (!contains_friendly_piece && !is_out_of_bounds && max_delta_squares == 2)
+            if ((for_occupied_squares || !contains_friendly_piece) && !is_out_of_bounds && max_delta_squares == 2)
             {
                 moveFunc(dt_lsf);
             }
@@ -391,7 +393,7 @@ namespace MoveGenerator
         // Reset the occupancy squares data.
         Globals::opponent_occupancy.clear();
 
-        for (int t_lsf = 0; t_lsf < Bitboard::Squares::h8; ++t_lsf)
+        for (int t_lsf = 0; t_lsf < Bitboard::Squares::h8 + 1; ++t_lsf)
         {
             const int piece_color = Bitboard::getColor(Globals::bitboard[t_lsf]);
 

@@ -8,6 +8,7 @@
 #include "texture.hpp"
 #include "interface.hpp"
 #include "move.hpp"
+#include "gui/settings.hpp"
 
 class Game
 {

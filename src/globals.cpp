@@ -44,7 +44,7 @@ std::vector<int> max_squares = {};
 SDL_Point last_move = SDL_Point{Squares::no_sq, Squares::no_sq};
 SDL_Point last_ply = SDL_Point{Squares::no_sq, Squares::no_sq};
 
-double recorded_time = 0.0;
+double elapsed_time = 0.0;
 
 SDL_Point linear_interpolant = {0, 0};
 SDL_Point scaled_linear_interpolant = {0, 0};
@@ -55,14 +55,18 @@ double time = 0.0;
 int en_passant = Squares::no_sq;
 
 //Castling Rights (1111 => 15)
-int castling = SHORT_CASTLE      |
-               LONG_CASTLE       |
-               SHORT_CASTLE << 2 |
-               LONG_CASTLE  << 2;
+int castling = Castle::SHORT_CASTLE      |
+               Castle::LONG_CASTLE       |
+               Castle::SHORT_CASTLE << 2 |
+               Castle::LONG_CASTLE  << 2;
+
+int game_state = GameState::OPENING;
 
 SDL_Point current_position = SDL_Point{0, 0};
 
 int selected_lsf = Squares::no_sq;
+
+int halfmove_clock = 0;
 
 void addWindow(const char* title, int width, int height) {
     window_set.push_back(SDL_CreateWindow(

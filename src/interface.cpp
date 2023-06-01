@@ -25,6 +25,12 @@ void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_h
         side ^= Bitboard::Sides::WHITE;
         side ^= Bitboard::Sides::BLACK;
 
+        if (MoveGenerator::notEmpty(lsf) || Bitboard::isPawn(bitboard[old_lsf])) {
+          //If the move can alter material or is a pawn move,
+          //then reset the halfmove clock
+          halfmove_clock = 0;
+        }
+
         bitboard[lsf] = bitboard[old_lsf];
         bitboard[old_lsf] = Bitboard::e;
 
@@ -55,7 +61,7 @@ void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_h
           bitboard[lsf + new_rook_delta_pos] = new_rook;
         }
 
-        Globals::recorded_time = static_cast<double>(SDL_GetTicks());
+        Globals::elapsed_time = static_cast<double>(SDL_GetTicks());
         Globals::linear_interpolant = Bitboard::lsfToCoord(old_lsf);
 
         Globals::scaled_linear_interpolant =
@@ -68,6 +74,12 @@ void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_h
         MoveGenerator::pawnPromotion(lsf);
 
         Globals::is_in_check = MoveGenerator::isInCheck(lsf);
+
+        if (Globals::halfmove_clock >= 50) {
+          std::cout << "Draw by 50-move rule.\n";
+          Globals::game_state = 0;
+          Globals::game_state |= GameState::DRAW;
+        }
 
         if (supress_hints) {
           break;
@@ -84,7 +96,6 @@ void Interface::undo() {
       last_move.x == Bitboard::Squares::no_sq || last_move.y == Bitboard::Squares::no_sq;
 
   if (no_previous_move) {
-    std::cout << "No previous move :C\n";
     return;
   }
 
@@ -107,10 +118,4 @@ int Interface::AABB(int x, int y) {
   }
 
   return Bitboard::Squares::no_sq;
-}
-
-//This is used for smooth transitions. It returns y = t(Δx) + a;
-int Interface::lerp(int a, int b, int t) {
-  int dx = b - a;
-  return t * dx + a;
 }

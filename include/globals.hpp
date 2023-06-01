@@ -6,6 +6,16 @@
 constexpr unsigned int FPS = 60;
 constexpr unsigned int FRAME_DELAY = FPS / 1000;
 
+enum GameState : int
+{
+    OPENING = 1 << 0,
+    MIDDLEGAME = 1 << 1,
+    ENDGAME = 1 << 2,
+
+    DRAW = 1 << 3,
+    CHECKMATE = 1 << 4,
+};
+
 namespace Globals
 {
     extern std::vector<SDL_Window *> window_set;
@@ -17,7 +27,7 @@ namespace Globals
 
     extern SDL_Point last_move;
     extern SDL_Point last_ply;
-    
+
     extern SDL_Point current_position;
 
     extern int side;
@@ -36,7 +46,7 @@ namespace Globals
 
     extern std::vector<SDL_Rect> quad_vector;
 
-    extern double recorded_time;
+    extern double elapsed_time;
     extern SDL_Point linear_interpolant;
     extern SDL_Point scaled_linear_interpolant;
 
@@ -47,7 +57,13 @@ namespace Globals
     extern std::vector<int> opponent_occupancy;
 
     extern int castling_square;
+
     extern std::vector<int> max_squares;
+
+    // 50-move rule
+    extern int halfmove_clock;
+
+    extern int game_state;
 
     void addWindow(const char *title, int width, int height);
     extern int window_count;

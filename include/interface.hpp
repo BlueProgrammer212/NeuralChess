@@ -18,8 +18,6 @@ public:
     void undo();
     void drag(int width, int height);
 
-    int lerp(int a, int b, int t);
-
 private:
     int mouse_position_x;
     int mouse_position_y;

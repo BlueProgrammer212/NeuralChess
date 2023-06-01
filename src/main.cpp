@@ -3,7 +3,7 @@
 
 int main(int argc, char* argv[]) {
   auto game_ptr = std::make_unique<Game>();
-  game_ptr->init(600, 600);
+  game_ptr->init(625, 600);
 
   constexpr int FPS = 144;
   constexpr int FRAME_DELAY = FPS / 1000;

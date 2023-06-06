@@ -2,8 +2,36 @@
 
 using namespace Globals;
 
-Game::Game() : m_running(true), m_interface(std::make_unique<Interface>()) {
-  std::cout << "Initializing the game\n";
+Game::Game()
+    : m_running(true),
+      m_interface(std::make_unique<Interface>()),
+      m_fen_parser(FenParser::getInstance()),
+      m_console(GetStdHandle(STD_OUTPUT_HANDLE)),
+      m_show_occupied_squares(false) {
+
+  SetConsoleTextAttribute(m_console, 10);
+
+  std::cout << R"(  _   _ ______ _    _ _____            _      _____ _    _ ______  _____ _____ 
+| \ | |  ____| |  | |  __ \     /\   | |    / ____| |  | |  ____|/ ____/ ____|
+|  \| | |__  | |  | | |__) |   /  \  | |   | |    | |__| | |__  | (___| (___  
+| . ` |  __| | |  | |  _  /   / /\ \ | |   | |    |  __  |  __|  \___ \\___ \ 
+| |\  | |____| |__| | | \ \  / ____ \| |___| |____| |  | | |____ ____) |___) |
+|_| \_|______|\____/|_|  \_\/_/    \_\______\_____|_|  |_|______|_____/_____/ 
+                                                                            )"
+            << "\n\n\n\n";
+
+  SetConsoleTextAttribute(m_console, 15);
+
+  std::cout << R"(
+----------KEY SHORTCUTS-----------
+p -> Run perft test. 
+r -> Remove the selected piece.
+c -> Reset the board to the initial position.
+o -> Reveal the occupied/controlled squares of the adversary. 
+(toggle)
+u -> Go to the previous move.
+----------------------------------)"
+            << "\n\n\n";
 }
 
 Game::~Game() {
@@ -23,9 +51,103 @@ Game::~Game() {
   SDL_Quit();
 }
 
+void Game::playRandomly() {
+  if (Globals::side & Bitboard::Sides::WHITE) {
+    return;
+  }
+
+  if (move_delay >= 10) {
+    MoveGenerator::generateLegalMoves();
+
+    if (game_state & GameState::DRAW || game_state & GameState::CHECKMATE) {
+      resetBoard();
+
+      return;
+    }
+
+    int random = rand() % (static_cast<int>(Globals::legal_moves.size()));
+
+    if (Globals::legal_moves[random].x & Bitboard::Squares::no_sq) {
+      playRandomly();
+      return;
+    }
+
+    m_interface->drop(Globals::legal_moves[random].x, Globals::legal_moves[random].y, BOX_WIDTH,
+                      BOX_HEIGHT, true, true);
+
+    move_delay = 0;
+  }
+}
+
+SDL_Point Game::moveGenerationTest(int depth) {
+  if (depth == 0) {
+    return SDL_Point{1, 0};
+  }
+
+  const std::vector<SDL_Point> legal_moves_copy = MoveGenerator::generateLegalMoves();
+
+  int num_of_positions = 0;
+  int num_of_captures = 0;
+
+  for (SDL_Point moves : legal_moves_copy) {
+    if (moves.x & Bitboard::Squares::no_sq) {
+      continue;
+    }
+
+    int old_piece = Globals::bitboard[moves.y];
+    int old_piece_in_dest = Globals::bitboard[moves.x];
+
+    bool initial_move_bit = Globals::move_bitset[moves.y];
+    bool initial_move_bit_new_lsf = Globals::move_bitset[moves.x];
+
+    if (MoveGenerator::canCapture(moves.x)) {
+      num_of_captures++;
+    }
+
+    Globals::bitboard[moves.x] = old_piece;
+    Globals::bitboard[moves.y] = Bitboard::Pieces::e;
+
+    Globals::move_bitset[moves.x] = true;
+    Globals::move_bitset[moves.y] = false;
+
+    //Exchange turns.
+    side ^= Bitboard::Sides::WHITE;
+    side ^= Bitboard::Sides::BLACK;
+
+    auto recursion_result = moveGenerationTest(depth - 1);
+
+    num_of_positions += recursion_result.x;
+    num_of_captures += recursion_result.y;
+
+    //Exchange turns.
+    side ^= Bitboard::Sides::WHITE;
+    side ^= Bitboard::Sides::BLACK;
+
+    // Unmake the move.
+    Globals::bitboard[moves.x] = old_piece_in_dest;
+    Globals::bitboard[moves.y] = old_piece;
+
+    Globals::move_bitset[moves.x] = initial_move_bit_new_lsf;
+    Globals::move_bitset[moves.y] = initial_move_bit;
+  }
+
+  MoveGenerator::generateLegalMoves();
+
+  return SDL_Point{num_of_positions, num_of_captures};
+}
+
 void Game::init(const int width, const int height) {
+  SDL_Init(SDL_INIT_EVERYTHING);
+
+  //Initialize the SDL Mixer Library.
+  if (Mix_OpenAudio(FREQUENCY, MIX_DEFAULT_FORMAT, 2, CHUNK_SIZE) == -1) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to initialize SDL_Mixer: %s\n",
+                 SDL_GetError());
+    return;
+  }
+
   //Initialize window.
-  addWindow("NeuralChess [DEBUG]", width, height);
+  createWindow("NeuralChess [DEBUG]", width, height);
 
   //Initialize the renderer.
   renderer =
@@ -41,8 +163,6 @@ void Game::init(const int width, const int height) {
 
   //Load the chess piece texture atlas.
   TextureManager::LoadTexture("../../res/atlas.png");
-
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
   SDL_RenderSetLogicalSize(renderer, width, height);
 
@@ -62,15 +182,34 @@ void Game::init(const int width, const int height) {
   //By default, it's white to move.
   side |= Bitboard::WHITE;
 
+  //Initialize the bitboard using the FEN parser.
+  m_fen_parser.init();
+
   MoveGenerator::searchForOccupiedSquares();
 
+  is_in_check = MoveGenerator::isInCheck(0);
+
+  //Update the legal move array.
+  MoveGenerator::generateLegalMoves();
+
+  if (is_in_check) {
+    audio_manager->PlayWAV("../../res/check.wav");
+    lsf_of_king_in_check = MoveGenerator::getOwnKing();
+  }
+
   //Settings::init();
+
+  MoveGenerator::renderMove(-1, -1);
 }
 
 void Game::update() {
   time += 1;
   delta_time = time - last_time;
   last_time = time;
+
+  move_delay += 1;
+
+  //playRandomly();
 }
 
 void Game::render() {
@@ -88,14 +227,26 @@ void Game::render() {
     SDL_RenderFillRect(renderer, &quad_vector[lsf]);
   }
 
-  //Render the occupancy squares. (For debugging purposes.)
-  for (int lsf : opponent_occupancy) {
-    const auto& pos = Bitboard::lsfToCoord(lsf);
+  // //Render the legal moves. (For debugging purposes.)
+  // for (SDL_Point lsf : Globals::legal_moves) {
+  //   const auto& pos = Bitboard::lsfToCoord(lsf.x);
 
-    const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
+  //   const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
 
-    SDL_SetRenderDrawColor(renderer, 75, 125, 255, 125);
-    SDL_RenderFillRect(renderer, &dest);
+  //   SDL_SetRenderDrawColor(renderer, 75, 255, 125, 125);
+  //   SDL_RenderFillRect(renderer, &dest);
+  // }
+
+  // //Render the opponent occupied squares.
+  if (m_show_occupied_squares) {
+    for (SDL_Point lsf : Globals::opponent_occupancy) {
+      const auto& pos = Bitboard::lsfToCoord(lsf.x);
+
+      const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
+
+      SDL_SetRenderDrawColor(renderer, 0, 125, 255, 125);
+      SDL_RenderFillRect(renderer, &dest);
+    }
   }
 
   //Highlight the selected quad.
@@ -103,18 +254,32 @@ void Game::render() {
     const auto& pos = Bitboard::lsfToCoord(selected_lsf);
     SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
 
-    SDL_SetRenderDrawColor(renderer, 255, 255, 0, 125);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 125, 125);
 
     SDL_RenderFillRect(renderer, &dest);
   }
 
-  //Render hints.
-  for (int lsf : move_hints) {
-    const auto& pos = Bitboard::lsfToCoord(lsf);
+  //Highlight the king in check.
+  if (is_in_check) {
+    const auto& pos = Bitboard::lsfToCoord(lsf_of_king_in_check);
 
     const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
 
-    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 125);
+    SDL_SetRenderDrawColor(renderer, 255, 0, 0, 200);
+    SDL_RenderFillRect(renderer, &dest);
+  }
+
+  //Render hints.
+  for (SDL_Point hint : move_hints) {
+    if (hint.x & Bitboard::Squares::no_sq) {
+      continue;
+    }
+
+    const auto& pos = Bitboard::lsfToCoord(hint.x);
+
+    const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
+
+    SDL_SetRenderDrawColor(renderer, 255, 60, 70, 125);
     SDL_RenderFillRect(renderer, &dest);
   }
 
@@ -136,16 +301,70 @@ void Game::render() {
 
   //Render the pieces.
   for (int i = 0; i < static_cast<int>(bitboard.size()); i++) {
-    TextureManager::RenderTexture(i, bitboard[i]);
+    TextureManager::AnimatePiece(i, bitboard[i]);
   }
 
   //Render the evaluation bar.
-  SDL_Rect black_eval = {600, 0, 25, 300};
+  //TODO: Refactor this later.
+  SDL_Rect black_eval_rect = {600, 0, 25, black_eval * 10};
   SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
-  SDL_RenderFillRect(renderer, &black_eval);
+  SDL_RenderFillRect(renderer, &black_eval_rect);
+  SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+  if (should_show_promotion_dialog) {
+    SDL_Rect bg_color = {0, 0, 600, 600};
+
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 125);
+    SDL_RenderFillRect(renderer, &bg_color);
+
+    SDL_Rect promotion_dialog = {(600 / 2) - (400 / 2), (600 / 2) - (250 / 2), 400, 250};
+
+    SDL_SetRenderDrawColor(renderer, 0, 175, 141, 255);
+    SDL_RenderFillRect(renderer, &promotion_dialog);
+
+    SDL_Rect queen_btn_src = {Bitboard::q * 333, 334, 333, 334};
+    SDL_Rect queen_btn_dest = {(600 / 2) - (400 / 2), (600 / 2) - (250 / 2), BOX_WIDTH, BOX_HEIGHT};
+
+    SDL_RenderCopy(renderer, texture, &queen_btn_src, &queen_btn_dest);
+  }
+
+  //For white eval value.
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
   SDL_RenderPresent(renderer);
+}
+
+void Game::resetBoard() {
+  std::cout << "\nRestoring initial position... Please wait\n";
+
+  Globals::move_bitset.reset();
+  Globals::opponent_occupancy.clear();
+
+  //Reset every data.
+  is_in_check = false;
+
+  last_move.x = Bitboard::Squares::no_sq;
+  last_move.y = Bitboard::Squares::no_sq;
+
+  last_ply.x = Bitboard::Squares::no_sq;
+  last_ply.y = Bitboard::Squares::no_sq;
+
+  lsf_of_king_in_check = Bitboard::Squares::no_sq;
+
+  m_fen_parser.init();
+
+  is_in_check = MoveGenerator::isInCheck(0);
+
+  //Update the legal move array.
+  MoveGenerator::generateLegalMoves();
+
+  if (is_in_check) {
+    audio_manager->PlayWAV("../../res/check.wav");
+    lsf_of_king_in_check = MoveGenerator::getOwnKing();
+  }
+
+  game_state = 0;
+  game_state |= GameState::OPENING;
 }
 
 void Game::events() {
@@ -160,7 +379,7 @@ void Game::events() {
         break;
 
       case SDL_MOUSEBUTTONDOWN:
-        if (Globals::game_state & GameState::DRAW) {
+        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE) {
           break;
         }
 
@@ -169,11 +388,19 @@ void Game::events() {
         if (selected_lsf == Bitboard::no_sq && Globals::bitboard[new_lsf] != Bitboard::e) {
           //If there is no selected square, then allow the selection.
           selected_lsf = (Bitboard::SHOULD_FLIP ? new_lsf ^ 0x38 : new_lsf);
+          MoveGenerator::filterPseudoLegalMoves(new_lsf, Globals::move_hints);
           break;
         }
 
         //If there is a selected square, then drop it to the new LSF.
         m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT);
+
+        Evaluation::countMaterial();
+
+        //If it's not checkmate yet or draw.
+        // if (game_state & GameState::OPENING) {
+        //   playRandomly();
+        // }
 
         //Reset the hint array.
         Globals::move_hints.clear();
@@ -182,6 +409,37 @@ void Game::events() {
         break;
 
       case SDL_KEYDOWN:
+        if (event.key.keysym.sym == SDLK_p) {
+          //Run perft test.
+          auto perf_result = moveGenerationTest(3);
+          std::cout << "Number of positions: " << perf_result.x
+                    << "\nNumber of captures: " << perf_result.y << "\n";
+        }
+
+        if (event.key.keysym.sym == SDLK_r && selected_lsf != Bitboard::Squares::no_sq) {
+          Globals::bitboard[selected_lsf] = Bitboard::e;
+
+          is_in_check = MoveGenerator::isInCheck(0);
+
+          //Update the legal move array.
+          MoveGenerator::generateLegalMoves();
+
+          if (is_in_check) {
+            audio_manager->PlayWAV("../../res/check.wav");
+            lsf_of_king_in_check = MoveGenerator::getOwnKing();
+          }
+
+          Globals::move_hints.clear();
+        }
+
+        if (event.key.keysym.sym == SDLK_o) {
+          m_show_occupied_squares ^= true;
+        }
+
+        if (event.key.keysym.sym == SDLK_c) {
+          resetBoard();
+        }
+
         if (Globals::game_state & GameState::DRAW) {
           break;
         }

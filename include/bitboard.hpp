@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <array>
+#include <string>
 #include <bitset>
 
 namespace Bitboard {
@@ -11,9 +12,6 @@ constexpr int NUM_OF_SQUARES = 64;
 constexpr int MAX_SQUARES_TO_EDGE = Bitboard::BOARD_SIZE + 1;
 
 constexpr bool SHOULD_FLIP = false;
-
-//This is used for the FEN parser and the PGN notation.
-constexpr const char* ascii_pieces = ".KQBNRPkqbnrp";
 
 enum Sides { 
     BLACK = 1 << 0, 
@@ -65,6 +63,10 @@ inline bool isPawn(int type) noexcept {
 
 inline bool isKing(int type) noexcept {
     return type == Pieces::K || type == Pieces::k;
+}
+
+inline bool isKnight(int type) noexcept {
+    return type == Pieces::N || type == Pieces::n;
 }
 
 //////////////SLIDING PIECES//////////////

@@ -30,7 +30,7 @@ void TextureManager::QueryTexture(int max_columns, int max_rows) {
   m_source_height /= max_rows;
 }
 
-void TextureManager::RenderTexture(int target_square, int type) {
+void TextureManager::AnimatePiece(int target_square, int type) {
   //Convert the target square index into a point.
   const auto pos = Bitboard::lsfToCoord(target_square);
 

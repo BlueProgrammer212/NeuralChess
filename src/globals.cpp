@@ -14,8 +14,12 @@ int BOX_WIDTH = 75;
 int BOX_HEIGHT = 75;
 
 bool is_in_check = false;
+bool should_show_promotion_dialog = false;
+int lsf_of_king_in_check = Bitboard::Squares::no_sq;
 
-//Initial Position of the Board.
+//This contains the pieces and the LSF.
+//TODO: Consider using a "Vec3" struct with arbitary type. 
+//Where x represents the LSF and y represents the type of the piece.
 std::vector<int> bitboard = {
     r, n, b, q, k, b, n, r,
     p, p, p, p, p, p, p, p,
@@ -24,25 +28,35 @@ std::vector<int> bitboard = {
     e, e, e, e, e, e, e, e,
     e, e, e, e, e, e, e, e,
     P, P, P, P, P, P, P, P,
-    R, N, B, Q, K, B, N, R
+    R, N, B, Q, K, B, N, R,
 };
 
-std::vector<int> opponent_occupancy = {};
+std::vector<SDL_Point> opponent_occupancy = {};
 
-std::bitset<Bitboard::NUM_OF_SQUARES> move_bitset;
+constexpr std::size_t TOTAL_SQUARES = 64U;
 
-std::vector<int> pseudolegal_moves = {};
-std::vector<int> move_hints = {};
+std::bitset<TOTAL_SQUARES> move_bitset;
+//x - Target LSF.
+//y - Old LSF where the piece is located.
+std::vector<SDL_Point> legal_moves = {};
+std::vector<SDL_Point> move_hints = {};
 
 std::vector<SDL_Rect> quad_vector = {};
 
-int side = 0; 
-int castling_square = 0;
+int side = 0;
+
+//x -> King side castling square.
+//y -> Queen side castling square 
+SDL_Point castling_square = {
+    Squares::no_sq, Squares::no_sq
+};
 
 std::vector<int> max_squares = {};
 
 SDL_Point last_move = SDL_Point{Squares::no_sq, Squares::no_sq};
 SDL_Point last_ply = SDL_Point{Squares::no_sq, Squares::no_sq};
+
+int last_piece_to_move = -1;
 
 double elapsed_time = 0.0;
 
@@ -55,10 +69,7 @@ double time = 0.0;
 int en_passant = Squares::no_sq;
 
 //Castling Rights (1111 => 15)
-int castling = Castle::SHORT_CASTLE      |
-               Castle::LONG_CASTLE       |
-               Castle::SHORT_CASTLE << 2 |
-               Castle::LONG_CASTLE  << 2;
+int castling = 15;
 
 int game_state = GameState::OPENING;
 
@@ -68,7 +79,11 @@ int selected_lsf = Squares::no_sq;
 
 int halfmove_clock = 0;
 
-void addWindow(const char* title, int width, int height) {
+int move_delay = 0;
+
+int black_eval = 20;
+
+void createWindow(const char* title, int width, int height) {
     window_set.push_back(SDL_CreateWindow(
         title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
         width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS));
@@ -77,4 +92,7 @@ void addWindow(const char* title, int width, int height) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create the window");
     }
 }
+
+std::shared_ptr<AudioManager> audio_manager =
+      std::make_shared<AudioManager>();
 } // namespace Globals

@@ -8,7 +8,8 @@ Interface::~Interface() {
   quad_vector.clear();
 }
 
-void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_hints) {
+void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_hints,
+                     bool exchange_turn) {
   //Check for friendly pieces.
   const int selected_piece = Bitboard::getColor(bitboard[old_lsf]);
   const int target_lsf = Bitboard::getColor(bitboard[lsf]);
@@ -20,12 +21,16 @@ void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_h
     const int num_of_execution = supress_hints ? 1 : static_cast<int>(move_hints.size());
 
     for (int i = 0; i < num_of_execution; ++i) {
-      if (lsf == move_hints[i] || supress_hints) {
+      if (lsf == move_hints[i].x || supress_hints) {
         //Exchange turns.
-        side ^= Bitboard::Sides::WHITE;
-        side ^= Bitboard::Sides::BLACK;
+        if (exchange_turn) {
+          side ^= Bitboard::Sides::WHITE;
+          side ^= Bitboard::Sides::BLACK;
+        }
 
-        if (MoveGenerator::notEmpty(lsf) || Bitboard::isPawn(bitboard[old_lsf])) {
+        bool can_alter_material = MoveGenerator::notEmpty(lsf);
+
+        if (can_alter_material || Bitboard::isPawn(bitboard[old_lsf])) {
           //If the move can alter material or is a pawn move,
           //then reset the halfmove clock
           halfmove_clock = 0;
@@ -34,51 +39,102 @@ void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_h
         bitboard[lsf] = bitboard[old_lsf];
         bitboard[old_lsf] = Bitboard::e;
 
-        //Update the move bitset.
+        //Update the move LSF set.
         move_bitset[lsf] = true;
         move_bitset[old_lsf] = false;
 
         last_ply.x = last_move.x;
         last_ply.y = last_move.y;
 
+        last_piece_to_move = bitboard[lsf];
+
         last_move.x = old_lsf;
         last_move.y = lsf;
 
-        if (lsf == castling_square && Bitboard::isKing(bitboard[lsf])) {
-          int color = Bitboard::getColor(Globals::bitboard[lsf]);
+        bool is_a_castling_move = false;
+        bool is_en_passant = (lsf == en_passant && !(en_passant & Bitboard::Squares::no_sq));
+
+        int color = Bitboard::getColor(Globals::bitboard[lsf]);
+
+        if ((lsf == castling_square.x || lsf == castling_square.y) &&
+            Bitboard::isKing(bitboard[lsf]) && !(color & Globals::side)) {
 
           int new_rook =
               (color & Bitboard::Sides::WHITE ? Bitboard::Pieces::R : Bitboard::Pieces::r);
 
-          int dx = castling_square - old_lsf;
+          int dx = lsf - old_lsf;
 
           //Move the rook depending on which side the king castled.
           //This is relative to the king.
           int new_rook_delta_pos = (dx < 0 ? 1 : -1);
           int delta_old_rook_pos = (dx < 0 ? -4 : 3);
 
-          bitboard[old_lsf + delta_old_rook_pos] = Bitboard::e;
-          bitboard[lsf + new_rook_delta_pos] = new_rook;
+          drop(lsf + new_rook_delta_pos, old_lsf + delta_old_rook_pos, BOX_WIDTH, BOX_HEIGHT, true,
+               false);
+
+          is_a_castling_move = true;
         }
 
-        Globals::elapsed_time = static_cast<double>(SDL_GetTicks());
-        Globals::linear_interpolant = Bitboard::lsfToCoord(old_lsf);
+        if (is_en_passant) {
+          int rank_increment = (Globals::side & Bitboard::Sides::WHITE ? -1 : 1);
+          bitboard[(rank_increment << 3) + lsf] = Bitboard::Pieces::e;
+        }
 
-        Globals::scaled_linear_interpolant =
-            SDL_Point{Globals::linear_interpolant.x * Globals::BOX_WIDTH,
-                      Globals::linear_interpolant.y * Globals::BOX_HEIGHT};
+        elapsed_time = static_cast<double>(SDL_GetTicks());
+        linear_interpolant = Bitboard::lsfToCoord(old_lsf);
 
-        Globals::time = 0.0;
+        scaled_linear_interpolant =
+            SDL_Point{linear_interpolant.x * BOX_WIDTH, linear_interpolant.y * BOX_HEIGHT};
+
+        time = 0.0;
 
         //Check for pawn promotions.
         MoveGenerator::pawnPromotion(lsf);
 
-        Globals::is_in_check = MoveGenerator::isInCheck(lsf);
+        is_in_check = MoveGenerator::isInCheck(lsf);
 
-        if (Globals::halfmove_clock >= 50) {
+        //Update the legal move array.
+        MoveGenerator::generateLegalMoves();
+
+        if (is_in_check) {
+          audio_manager->PlayWAV("../../res/check.wav");
+          lsf_of_king_in_check = MoveGenerator::getOwnKing();
+        } else if (is_a_castling_move) {
+          audio_manager->PlayWAV("../../res/castle.wav");
+        } else if (can_alter_material || is_en_passant) {
+          audio_manager->PlayWAV("../../res/capture.wav");
+        } else {
+          audio_manager->PlayWAV("../../res/move.wav");
+        }
+
+        if (halfmove_clock >= 50) {
           std::cout << "Draw by 50-move rule.\n";
-          Globals::game_state = 0;
-          Globals::game_state |= GameState::DRAW;
+          game_state = 0;
+          game_state |= GameState::DRAW;
+        }
+
+        //Checkmate detection.
+        int legal_move_count = 0;
+
+        for (SDL_Point hint_lsf : Globals::legal_moves) {
+          if (hint_lsf.x & Bitboard::Squares::no_sq) {
+            continue;
+          }
+
+          legal_move_count++;
+        }
+
+        if (legal_move_count <= 0) {
+          if (is_in_check) {
+            const char* winner = (Globals::side & Bitboard::Sides::BLACK ? "White" : "Black");
+            std::cout << "Checkmate! " << winner << " is victorious.\n";
+            game_state = 0;
+            game_state |= GameState::CHECKMATE;
+          } else {
+            std::cout << "Draw by Stalemate.\n";
+            game_state = 0;
+            game_state |= GameState::DRAW;
+          }
         }
 
         if (supress_hints) {
@@ -112,6 +168,7 @@ int Interface::AABB(int x, int y) {
 
       if (rect.x + rect.w > x && x > rect.x && rect.y + rect.h > y && y > rect.y) {
         MoveGenerator::searchPseudoLegalMoves(index, &MoveGenerator::renderMove);
+
         return index;
       }
     }

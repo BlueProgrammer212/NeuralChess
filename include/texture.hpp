@@ -11,7 +11,7 @@ public:
     ~TextureManager();
 
     static SDL_Texture *LoadTexture(const char *path);
-    static void RenderTexture(int target_square, int type);
+    static void AnimatePiece(int target_square, int type);
     static void QueryTexture(int max_columns, int max_rows);
 
 private:

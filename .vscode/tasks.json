@@ -37,6 +37,7 @@
                 "-lSDL2",
                 "-lSDL2_image",
                 "-lSDL2_mixer"
+                //"-lcurl" (Download lib curl first)
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

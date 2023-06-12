@@ -1,0 +1,259 @@
+{
+    "white": 1300291983,
+    "draws": 101965515,
+    "black": 1229076019,
+    "moves": [
+        {
+            "uci": "e7e5",
+            "san": "e5",
+            "averageRating": 1500,
+            "white": 550679257,
+            "draws": 41139822,
+            "black": 486133340,
+            "game": null
+        },
+        {
+            "uci": "c7c5",
+            "san": "c5",
+            "averageRating": 1731,
+            "white": 231059868,
+            "draws": 19184278,
+            "black": 234064232,
+            "game": null
+        },
+        {
+            "uci": "d7d5",
+            "san": "d5",
+            "averageRating": 1590,
+            "white": 132708362,
+            "draws": 10582786,
+            "black": 129054487,
+            "game": null
+        },
+        {
+            "uci": "e7e6",
+            "san": "e6",
+            "averageRating": 1679,
+            "white": 128862259,
+            "draws": 10596973,
+            "black": 129060523,
+            "game": null
+        },
+        {
+            "uci": "c7c6",
+            "san": "c6",
+            "averageRating": 1725,
+            "white": 80102197,
+            "draws": 7143944,
+            "black": 82960621,
+            "game": null
+        },
+        {
+            "uci": "d7d6",
+            "san": "d6",
+            "averageRating": 1689,
+            "white": 46364446,
+            "draws": 3646883,
+            "black": 44521666,
+            "game": null
+        },
+        {
+            "uci": "g7g6",
+            "san": "g6",
+            "averageRating": 1680,
+            "white": 42703275,
+            "draws": 3286555,
+            "black": 42153166,
+            "game": null
+        },
+        {
+            "uci": "g8f6",
+            "san": "Nf6",
+            "averageRating": 1684,
+            "white": 26019285,
+            "draws": 2103111,
+            "black": 25801323,
+            "game": null
+        },
+        {
+            "uci": "b7b6",
+            "san": "b6",
+            "averageRating": 1618,
+            "white": 26542053,
+            "draws": 1819491,
+            "black": 24751953,
+            "game": null
+        },
+        {
+            "uci": "b8c6",
+            "san": "Nc6",
+            "averageRating": 1573,
+            "white": 20296628,
+            "draws": 1494786,
+            "black": 18635258,
+            "game": null
+        },
+        {
+            "uci": "a7a6",
+            "san": "a6",
+            "averageRating": 1605,
+            "white": 3386651,
+            "draws": 236545,
+            "black": 3033729,
+            "game": null
+        },
+        {
+            "uci": "f7f5",
+            "san": "f5",
+            "averageRating": 1596,
+            "white": 2970652,
+            "draws": 175093,
+            "black": 2631962,
+            "game": null
+        }
+    ],
+    "recentGames": [
+        {
+            "uci": "c7c5",
+            "id": "FGiHylMg",
+            "winner": "white",
+            "speed": "rapid",
+            "mode": "rated",
+            "black": {
+                "name": "Nodahttahp",
+                "rating": 1950
+            },
+            "white": {
+                "name": "KHALIDYOSSIF2020",
+                "rating": 1918
+            },
+            "year": 2023,
+            "month": "2023-05"
+        },
+        {
+            "uci": "g8f6",
+            "id": "rdSwCF8G",
+            "winner": "black",
+            "speed": "blitz",
+            "mode": "rated",
+            "black": {
+                "name": "Meri9",
+                "rating": 1608
+            },
+            "white": {
+                "name": "intuse",
+                "rating": 1558
+            },
+            "year": 2023,
+            "month": "2023-05"
+        },
+        {
+            "uci": "e7e5",
+            "id": "XZHoe2lg",
+            "winner": "white",
+            "speed": "blitz",
+            "mode": "rated",
+            "black": {
+                "name": "kino82",
+                "rating": 1315
+            },
+            "white": {
+                "name": "Chrisra96",
+                "rating": 1246
+            },
+            "year": 2023,
+            "month": "2023-05"
+        },
+        {
+            "uci": "c7c5",
+            "id": "w7dBGExE",
+            "winner": "black",
+            "speed": "blitz",
+            "mode": "rated",
+            "black": {
+                "name": "Harry_Brand2017",
+                "rating": 2117
+            },
+            "white": {
+                "name": "Timogen1970",
+                "rating": 2188
+            },
+            "year": 2023,
+            "month": "2023-05"
+        }
+    ],
+    "topGames": [
+        {
+            "uci": "c7c6",
+            "id": "bR2sLJk4",
+            "winner": "black",
+            "speed": "bullet",
+            "mode": "rated",
+            "black": {
+                "name": "GMadly",
+                "rating": 2938
+            },
+            "white": {
+                "name": "markb0716",
+                "rating": 2716
+            },
+            "year": 2023,
+            "month": "2023-05"
+        },
+        {
+            "uci": "g7g6",
+            "id": "FweMuyLY",
+            "winner": "black",
+            "speed": "bullet",
+            "mode": "rated",
+            "black": {
+                "name": "Mishka_The_Great",
+                "rating": 2987
+            },
+            "white": {
+                "name": "CosmicVision",
+                "rating": 2671
+            },
+            "year": 2023,
+            "month": "2023-05"
+        },
+        {
+            "uci": "e7e5",
+            "id": "MImsrPjE",
+            "winner": "white",
+            "speed": "bullet",
+            "mode": "rated",
+            "black": {
+                "name": "greennight",
+                "rating": 2915
+            },
+            "white": {
+                "name": "abrito99",
+                "rating": 2839
+            },
+            "year": 2023,
+            "month": "2023-05"
+        },
+        {
+            "uci": "c7c5",
+            "id": "GPjcrBfW",
+            "winner": "black",
+            "speed": "blitz",
+            "mode": "rated",
+            "black": {
+                "name": "elconceto",
+                "rating": 2922
+            },
+            "white": {
+                "name": "SexxOnTheBeach",
+                "rating": 2788
+            },
+            "year": 2023,
+            "month": "2023-05"
+        }
+    ],
+    "opening": {
+        "eco": "B00",
+        "name": "King's Pawn Game"
+    }
+}

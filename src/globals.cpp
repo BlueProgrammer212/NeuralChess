@@ -15,11 +15,16 @@ int BOX_HEIGHT = 75;
 
 bool is_in_check = false;
 bool should_show_promotion_dialog = false;
+bool display_legal_move_hints = true;
+
+bool is_mouse_down = false;
+
 int lsf_of_king_in_check = Bitboard::Squares::no_sq;
 
 //This contains the pieces and the LSF.
-//TODO: Consider using a "Vec3" struct with arbitary type. 
-//Where x represents the LSF and y represents the type of the piece.
+//TODO: Consider using a 64-bit unsigned integer instead to represent
+//the pieces. To distinguish pieces, we can use 14 bits.
+
 std::vector<int> bitboard = {
     r, n, b, q, k, b, n, r,
     p, p, p, p, p, p, p, p,
@@ -36,25 +41,24 @@ std::vector<SDL_Point> opponent_occupancy = {};
 constexpr std::size_t TOTAL_SQUARES = 64U;
 
 std::bitset<TOTAL_SQUARES> move_bitset;
+
 //x - Target LSF.
 //y - Old LSF where the piece is located.
-std::vector<SDL_Point> legal_moves = {};
-std::vector<SDL_Point> move_hints = {};
+std::vector<LegalMove> legal_moves = {};
+std::vector<LegalMove> move_hints = {};
 
 std::vector<SDL_Rect> quad_vector = {};
 
 int side = 0;
 
 //x -> King side castling square.
-//y -> Queen side castling square 
-SDL_Point castling_square = {
-    Squares::no_sq, Squares::no_sq
-};
+//y -> Queen side castling square
+SDL_Point castling_square = {Squares::no_sq, Squares::no_sq};
 
 std::vector<int> max_squares = {};
 
-SDL_Point last_move = SDL_Point{Squares::no_sq, Squares::no_sq};
-SDL_Point last_ply = SDL_Point{Squares::no_sq, Squares::no_sq};
+//Keep track of old moves to generate old moves.
+std::vector<Ply> ply_array = {};
 
 int last_piece_to_move = -1;
 
@@ -68,8 +72,8 @@ double time = 0.0;
 //Define the En Passant Square Position.
 int en_passant = Squares::no_sq;
 
-//Castling Rights (1111 => 15)
-int castling = 15;
+//Castling Rights
+int castling = 0;
 
 int game_state = GameState::OPENING;
 
@@ -81,18 +85,22 @@ int halfmove_clock = 0;
 
 int move_delay = 0;
 
-int black_eval = 20;
+int black_eval = 30;
+
+int current_move = 0;
+
+unsigned int promotion_lsf = 0;
 
 void createWindow(const char* title, int width, int height) {
-    window_set.push_back(SDL_CreateWindow(
-        title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 
-        width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS));
+  window_set.push_back(SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                        width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS));
 
-    if (window_set.at(window_count++) == nullptr) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create the window");
-    }
+  if (window_set.at(window_count++) == nullptr) {
+    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create the window");
+  }
 }
 
-std::shared_ptr<AudioManager> audio_manager =
-      std::make_shared<AudioManager>();
-} // namespace Globals
+std::shared_ptr<AudioManager> audio_manager = std::make_shared<AudioManager>();
+
+SDL_Point mouse_coord = {0, 0};
+}  // namespace Globals

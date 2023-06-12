@@ -25,7 +25,7 @@ public:
   void events();
 
   inline bool isRunning() const { return m_running; }
-  inline SDL_Point moveGenerationTest(int depth);
+  inline PerftData moveGenerationTest(int depth);
   void playRandomly();
   void resetBoard();
 
@@ -35,9 +35,9 @@ private:
   int delta_time;
 
   bool m_running;
-  
+
   std::unique_ptr<Interface> m_interface{};
-  FenParser& m_fen_parser;
+  FenParser &m_fen_parser;
   HANDLE m_console;
 
   bool m_show_occupied_squares;

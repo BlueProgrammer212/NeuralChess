@@ -6,11 +6,11 @@
 
 enum MaterialValue {
     PAWN = 1,
+    
     //Minor Pieces
     BISHOP = 3,
     KNIGHT = 3,
 
-    //The Big Boys
     ROOK = 5,
     QUEEN = 9,
 

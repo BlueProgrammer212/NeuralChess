@@ -11,7 +11,7 @@ Game::Game()
 
   SetConsoleTextAttribute(m_console, 10);
 
-  std::cout << R"(  _   _ ______ _    _ _____            _      _____ _    _ ______  _____ _____ 
+  std::cout << R"( _   _ ______ _    _ _____            _      _____ _    _ ______  _____ _____ 
 | \ | |  ____| |  | |  __ \     /\   | |    / ____| |  | |  ____|/ ____/ ____|
 |  \| | |__  | |  | | |__) |   /  \  | |   | |    | |__| | |__  | (___| (___  
 | . ` |  __| | |  | |  _  /   / /\ \ | |   | |    |  __  |  __|  \___ \\___ \ 
@@ -24,20 +24,18 @@ Game::Game()
 
   std::cout << R"(
 ----------KEY SHORTCUTS-----------
-p -> Run perft test. 
-r -> Remove the selected piece.
-c -> Reset the board to the initial position.
-o -> Reveal the occupied/controlled squares of the adversary. 
+P: Run perft test. 
+R: Remove the selected piece.
+C: Reset the board to the initial position.
+O: Reveal the occupied/controlled squares of the adversary. 
 (toggle)
-u -> Go to the previous move.
+P: Go to the previous move.
 ----------------------------------)"
             << "\n\n\n";
 }
 
 Game::~Game() {
-  for (SDL_Window* window : window_set) {
-    SDL_DestroyWindow(window);
-  }
+  SDL_DestroyWindow(window_set.back());
 
   SDL_DestroyRenderer(renderer);
 
@@ -56,7 +54,7 @@ void Game::playRandomly() {
     return;
   }
 
-  if (move_delay >= 10) {
+  if (move_delay >= 1) {
     MoveGenerator::generateLegalMoves();
 
     if (game_state & GameState::DRAW || game_state & GameState::CHECKMATE) {
@@ -79,61 +77,55 @@ void Game::playRandomly() {
   }
 }
 
-SDL_Point Game::moveGenerationTest(int depth) {
+PerftData Game::moveGenerationTest(int depth) {
   if (depth == 0) {
-    return SDL_Point{1, 0};
+    return PerftData{1, 0};
   }
 
-  const std::vector<SDL_Point> legal_moves_copy = MoveGenerator::generateLegalMoves();
+  const std::vector<LegalMove> legal_moves_copy = MoveGenerator::generateLegalMoves();
 
-  int num_of_positions = 0;
-  int num_of_captures = 0;
+  PerftData data;
+  auto& [num_of_positions, num_of_captures, num_of_checks, num_of_en_passant, num_of_castles,
+         num_of_promotions] = data;
 
-  for (SDL_Point moves : legal_moves_copy) {
+  for (const LegalMove& moves : legal_moves_copy) {
     if (moves.x & Bitboard::Squares::no_sq) {
       continue;
     }
-
-    int old_piece = Globals::bitboard[moves.y];
-    int old_piece_in_dest = Globals::bitboard[moves.x];
-
-    bool initial_move_bit = Globals::move_bitset[moves.y];
-    bool initial_move_bit_new_lsf = Globals::move_bitset[moves.x];
 
     if (MoveGenerator::canCapture(moves.x)) {
       num_of_captures++;
     }
 
-    Globals::bitboard[moves.x] = old_piece;
-    Globals::bitboard[moves.y] = Bitboard::Pieces::e;
-
-    Globals::move_bitset[moves.x] = true;
-    Globals::move_bitset[moves.y] = false;
+    const auto& move_data = MoveGenerator::makeMove(moves);
 
     //Exchange turns.
     side ^= Bitboard::Sides::WHITE;
     side ^= Bitboard::Sides::BLACK;
 
-    auto recursion_result = moveGenerationTest(depth - 1);
+    bool check = MoveGenerator::isInCheck(0);
 
-    num_of_positions += recursion_result.x;
-    num_of_captures += recursion_result.y;
+    if (check) {
+      num_of_checks++;
+    }
+
+    const auto recursion_result = moveGenerationTest(depth - 1);
+
+    num_of_positions += recursion_result.num_of_positions;
+    num_of_captures += recursion_result.num_of_captures;
+    num_of_checks += recursion_result.num_of_checks;
+    num_of_en_passant += recursion_result.num_of_en_passant;
 
     //Exchange turns.
     side ^= Bitboard::Sides::WHITE;
     side ^= Bitboard::Sides::BLACK;
 
-    // Unmake the move.
-    Globals::bitboard[moves.x] = old_piece_in_dest;
-    Globals::bitboard[moves.y] = old_piece;
-
-    Globals::move_bitset[moves.x] = initial_move_bit_new_lsf;
-    Globals::move_bitset[moves.y] = initial_move_bit;
+    MoveGenerator::unmakeMove(moves, move_data);
   }
 
   MoveGenerator::generateLegalMoves();
 
-  return SDL_Point{num_of_positions, num_of_captures};
+  return data;
 }
 
 void Game::init(const int width, const int height) {
@@ -200,6 +192,7 @@ void Game::init(const int width, const int height) {
   //Settings::init();
 
   MoveGenerator::renderMove(-1, -1);
+  Evaluation::countMaterial();
 }
 
 void Game::update() {
@@ -207,9 +200,13 @@ void Game::update() {
   delta_time = time - last_time;
   last_time = time;
 
-  move_delay += 1;
-
+  move_delay += delta_time;
   //playRandomly();
+
+  if (move_delay >= 20) {
+    Evaluation::countMaterial();
+    move_delay = 0;
+  }
 }
 
 void Game::render() {
@@ -270,38 +267,50 @@ void Game::render() {
   }
 
   //Render hints.
-  for (SDL_Point hint : move_hints) {
-    if (hint.x & Bitboard::Squares::no_sq) {
-      continue;
+  if (display_legal_move_hints) {
+    for (const LegalMove& hint : move_hints) {
+      if (hint.x & Bitboard::Squares::no_sq) {
+        continue;
+      }
+
+      const auto& pos = Bitboard::lsfToCoord(hint.x);
+
+      const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
+
+      SDL_SetRenderDrawColor(renderer, 255, 60, 70, 125);
+      SDL_RenderFillRect(renderer, &dest);
     }
-
-    const auto& pos = Bitboard::lsfToCoord(hint.x);
-
-    const SDL_Rect dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_WIDTH};
-
-    SDL_SetRenderDrawColor(renderer, 255, 60, 70, 125);
-    SDL_RenderFillRect(renderer, &dest);
   }
 
   //Highlight the last move.
-  if (last_move.x != Bitboard::no_sq && last_move.y != Bitboard::no_sq) {
-    const auto& initial_pos = Bitboard::lsfToCoord(last_move.x);
-    const auto& pos = Bitboard::lsfToCoord(last_move.y);
 
-    const SDL_Rect dest = {initial_pos.x * BOX_WIDTH, initial_pos.y * BOX_HEIGHT, BOX_WIDTH,
-                           BOX_HEIGHT};
-    const SDL_Rect final_dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
+  //Prevent segmentation fault.
+  if (!Globals::ply_array.empty()) {
+    SDL_Point last_move = Globals::ply_array.back().move;
 
-    SDL_SetRenderDrawColor(renderer, 200, 200, 0, 125);
-    SDL_RenderFillRect(renderer, &dest);
+    if (!(last_move.x & Bitboard::no_sq) && !(last_move.y & Bitboard::no_sq)) {
+      const auto& initial_pos = Bitboard::lsfToCoord(last_move.x);
+      const auto& pos = Bitboard::lsfToCoord(last_move.y);
 
-    SDL_SetRenderDrawColor(renderer, 220, 220, 0, 125);
-    SDL_RenderFillRect(renderer, &final_dest);
+      const SDL_Rect dest = {initial_pos.x * BOX_WIDTH, initial_pos.y * BOX_HEIGHT, BOX_WIDTH,
+                             BOX_HEIGHT};
+      const SDL_Rect final_dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
+
+      SDL_SetRenderDrawColor(renderer, 200, 200, 0, 125);
+      SDL_RenderFillRect(renderer, &dest);
+
+      SDL_SetRenderDrawColor(renderer, 220, 220, 0, 125);
+      SDL_RenderFillRect(renderer, &final_dest);
+    }
   }
 
   //Render the pieces.
   for (int i = 0; i < static_cast<int>(bitboard.size()); i++) {
     TextureManager::AnimatePiece(i, bitboard[i]);
+  }
+
+  if (!(Globals::selected_lsf & Bitboard::no_sq) && Globals::is_mouse_down) {
+    TextureManager::DrawPiece(bitboard[selected_lsf]);
   }
 
   //Render the evaluation bar.
@@ -340,14 +349,11 @@ void Game::resetBoard() {
   Globals::move_bitset.reset();
   Globals::opponent_occupancy.clear();
 
+  //Clear the moves recorded from the previous game.
+  Globals::ply_array.clear();
+
   //Reset every data.
   is_in_check = false;
-
-  last_move.x = Bitboard::Squares::no_sq;
-  last_move.y = Bitboard::Squares::no_sq;
-
-  last_ply.x = Bitboard::Squares::no_sq;
-  last_ply.y = Bitboard::Squares::no_sq;
 
   lsf_of_king_in_check = Bitboard::Squares::no_sq;
 
@@ -378,17 +384,33 @@ void Game::events() {
         m_running = false;
         break;
 
+      case SDL_MOUSEMOTION:
+        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE) {
+          break;
+        }
+
+        if (selected_lsf != Bitboard::no_sq && is_mouse_down) {
+          SDL_GetMouseState(&mouse_coord.x, &mouse_coord.y);
+        }
+
+        break;
+
       case SDL_MOUSEBUTTONDOWN:
         if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE) {
           break;
         }
+
+        SDL_GetMouseState(&mouse_coord.x, &mouse_coord.y);
 
         new_lsf = Interface::AABB(event.button.y, event.button.x);
 
         if (selected_lsf == Bitboard::no_sq && Globals::bitboard[new_lsf] != Bitboard::e) {
           //If there is no selected square, then allow the selection.
           selected_lsf = (Bitboard::SHOULD_FLIP ? new_lsf ^ 0x38 : new_lsf);
+          //is_mouse_down = true;
+
           MoveGenerator::filterPseudoLegalMoves(new_lsf, Globals::move_hints);
+
           break;
         }
 
@@ -402,18 +424,40 @@ void Game::events() {
         //   playRandomly();
         // }
 
-        //Reset the hint array.
         Globals::move_hints.clear();
-        selected_lsf = Bitboard::no_sq;
+        Globals::selected_lsf = Bitboard::no_sq;
 
         break;
 
+      case SDL_MOUSEBUTTONUP:
+        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE ||
+            !is_mouse_down || selected_lsf & Bitboard::no_sq) {
+          break;
+        }
+
+        new_lsf = Interface::AABB(event.button.y, event.button.x);
+        m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT);
+
+        Globals::move_hints.clear();
+        Globals::selected_lsf = Bitboard::no_sq;
+
+        is_mouse_down = false;
+
+        break;
       case SDL_KEYDOWN:
         if (event.key.keysym.sym == SDLK_p) {
           //Run perft test.
-          auto perf_result = moveGenerationTest(3);
-          std::cout << "Number of positions: " << perf_result.x
-                    << "\nNumber of captures: " << perf_result.y << "\n";
+          int test_depth = 3;
+
+          auto perf_result = moveGenerationTest(test_depth);
+
+          std::cout << "----------PERFT TEST RESULTS----------\n"
+                    << "Depth: " << test_depth << "\n"
+                    << "Number of Positions: " << perf_result.num_of_positions << "\n"
+                    << "Number of Captures: " << perf_result.num_of_captures << "\n"
+                    << "Number of Checks: " << perf_result.num_of_checks << "\n"
+                    << "Number of En Passant: " << perf_result.num_of_en_passant << "\n"
+                    << "--------------------------------------\n\n";
         }
 
         if (event.key.keysym.sym == SDLK_r && selected_lsf != Bitboard::Squares::no_sq) {
@@ -434,6 +478,10 @@ void Game::events() {
 
         if (event.key.keysym.sym == SDLK_o) {
           m_show_occupied_squares ^= true;
+        }
+
+        if (event.key.keysym.sym == SDLK_h) {
+          display_legal_move_hints ^= true;
         }
 
         if (event.key.keysym.sym == SDLK_c) {

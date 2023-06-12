@@ -1,5 +1,7 @@
 #include "evaluation.hpp"
 
+//Skid moment :nerd:
+
 namespace Evaluation {
 int pawn_count = 0;
 int bishop_count = 0;
@@ -8,21 +10,20 @@ int rook_count = 0;
 int queen_count = 0;
 
 int countMaterial() {
-  Globals::black_eval = 0;
+  Globals::black_eval = 30;
 
   pawn_count = 0;
   bishop_count = 0;
   knight_count = 0;
-  rook_count = 0; 
+  rook_count = 0;
   queen_count = 0;
 
   for (int type : Globals::bitboard) {
     int color = Bitboard::getColor(type);
 
-    if (color & Bitboard::Sides::WHITE ||
-        type == Bitboard::Pieces::e) {
-        continue;
-    } 
+    if (color & Bitboard::Sides::WHITE || type == Bitboard::Pieces::e) {
+      continue;
+    }
 
     if (Bitboard::isPawn(type)) {
       ++pawn_count;
@@ -43,6 +44,39 @@ int countMaterial() {
   Globals::black_eval += knight_count * MaterialValue::KNIGHT;
   Globals::black_eval += rook_count * MaterialValue::ROOK;
   Globals::black_eval += queen_count * MaterialValue::QUEEN;
+
+  pawn_count = 0;
+  bishop_count = 0;
+  knight_count = 0;
+  rook_count = 0;
+  queen_count = 0;
+
+  for (int type : Globals::bitboard) {
+    int color = Bitboard::getColor(type);
+
+    if (color & Bitboard::Sides::BLACK || type == Bitboard::Pieces::e) {
+      continue;
+    }
+
+    if (Bitboard::isPawn(type)) {
+      ++pawn_count;
+    } else if (Bitboard::isBishop(type)) {
+      ++bishop_count;
+    } else if (Bitboard::isKnight(type)) {
+      ++knight_count;
+    } else if (Bitboard::isRook(type)) {
+      ++rook_count;
+    } else if (Bitboard::isQueen(type)) {
+      ++queen_count;
+    }
+  }
+
+  //Subtract the white eval to the black eval
+  Globals::black_eval -= pawn_count * MaterialValue::PAWN;
+  Globals::black_eval -= bishop_count * MaterialValue::BISHOP;
+  Globals::black_eval -= knight_count * MaterialValue::KNIGHT;
+  Globals::black_eval -= rook_count * MaterialValue::ROOK;
+  Globals::black_eval -= queen_count * MaterialValue::QUEEN;
 
   return Globals::black_eval;
 }

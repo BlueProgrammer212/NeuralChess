@@ -14,7 +14,7 @@ public:
     // This is for the buttons.
     static int AABB(int x, int y);
 
-    void drop(int lsf, int old_lsf, int width, int height, bool supress_hints = false, bool exchange_turn = true);
+    void drop(int lsf, int old_lsf, int width, int height, bool supress_hints = false, bool exchange_turn = true, bool will_undo_move = false, bool is_castling = false);
     void undo();
     void drag(int width, int height);
 

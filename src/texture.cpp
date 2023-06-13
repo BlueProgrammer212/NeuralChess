@@ -28,7 +28,16 @@ void TextureManager::QueryTexture(int max_columns, int max_rows) {
   SDL_QueryTexture(Globals::texture, nullptr, nullptr, &m_source_width, &m_source_height);
   m_source_width /= max_columns;
   m_source_height /= max_rows;
+
+  std::cout << m_source_width << "\n" 
+            << m_source_height << "\n";
 }
+
+//GUI rendering
+void TextureManager::DrawButton(const SDL_Point& pos, const int width, const int height) {
+  SDL_Rect rect = {pos.x, pos.y, width, height};
+  SDL_RenderDrawRect(Globals::renderer, &rect);
+} 
 
 //This is used for the drag and drop feature.
 void TextureManager::DrawPiece(const int type) {
@@ -40,8 +49,8 @@ void TextureManager::DrawPiece(const int type) {
   int color = (type > 6 ? 1 : 0);
 
   SDL_Rect dest = {Globals::mouse_coord.x - Globals::BOX_WIDTH / 2,
-                   Globals::mouse_coord.y - Globals::BOX_HEIGHT / 2,
-                   Globals::BOX_WIDTH, Globals::BOX_HEIGHT};
+                   Globals::mouse_coord.y - Globals::BOX_HEIGHT / 2, Globals::BOX_WIDTH,
+                   Globals::BOX_HEIGHT};
 
   SDL_Rect src = {final_type * m_source_width, color * m_source_height, m_source_width,
                   m_source_height};

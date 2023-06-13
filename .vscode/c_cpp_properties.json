@@ -6,7 +6,8 @@
                 "${workspaceFolder}/**",
                 "${vcpkgRoot}/x86-windows/include",
                 "${workspaceFolder}\\dependencies\\SDL2-2.26.4\\x86_64-w64-mingw32\\include",
-                "${workspaceFolder}\\dependencies\\SDL2_image-2.6.3\\x86_64-w64-mingw32\\include"
+                "${workspaceFolder}\\dependencies\\SDL2_image-2.6.3\\x86_64-w64-mingw32\\include",
+                "${workspaceFolder}\\dependencies\\SDL2_mixer-2.6.3\\x86_64-w64-mingw32\\include"
             ],
             "defines": [
                 "_DEBUG",

@@ -55,7 +55,7 @@ struct PerftData
 
 namespace Globals
 {
-    extern std::vector<SDL_Window *> window_set;
+    extern SDL_Window *window;
     extern SDL_Renderer *renderer;
     extern SDL_Texture *texture;
 
@@ -117,7 +117,7 @@ namespace Globals
 
     extern std::shared_ptr<AudioManager> audio_manager;
 
-    void createWindow(const char *title, int width, int height);
+    //void createWindow(const char *title, int width, int height);
 
     extern int window_count;
 

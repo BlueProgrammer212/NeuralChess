@@ -29,17 +29,17 @@ int getMaxDeltaSquares(const int delta_lsf, const int lsf_prime) {
 void pawnPromotion(const int t_lsf) {
   int piece_color = Bitboard::getColor(Globals::bitboard[t_lsf]);
 
-  int new_type = (piece_color & Bitboard::Sides::WHITE ? Bitboard::Pieces::Q : Bitboard::Pieces::q);
-
   if (Bitboard::isPawn(Globals::bitboard[t_lsf]) &&
       ((t_lsf >> 3 == 0 && piece_color & Bitboard::Sides::WHITE) ||
        (t_lsf >> 3 == Bitboard::BOARD_SIZE && piece_color & Bitboard::Sides::BLACK))) {
     // Globals::addWindow("Pawn Promotion", 700, 400);
 
     Globals::should_show_promotion_dialog = true;
+    
+    Globals::side ^= 0b11;
 
     //  Auto queen feature.
-    Globals::bitboard[t_lsf] = new_type;
+    //Globals::bitboard[t_lsf] = new_type;
   }
 }
 
@@ -274,11 +274,6 @@ void generatePawnCaptures(int t_lsf, const std::function<void(int, int)> moveFun
                           bool for_occupied_squares) {
   const int color = Bitboard::getColor(Globals::bitboard[t_lsf]);
 
-  //Instead of using a conditional to check whether it is
-  //white to move or black to move, we can use the equation
-  //y = 2(x - 1) + b. Where b represents the "mininum index" and
-  //2x - 2 determines if the color is 1 or 2 (0b01 or 0b10).
-
   const int direction_offset_start = (2 * (color - 1)) + 4;
   const int direction_offset_end = (2 * (color - 1)) + 6;
 
@@ -347,6 +342,136 @@ void generateSlidingMoves(int t_lsf, std::function<void(int, int)> moveFunc,
       }
 
       moveFunc(dt_lsf, t_lsf);
+    }
+  }
+}
+
+void isFlankEmpty(int flank, int t_lsf, std::function<void(int, int)> moveFunc) {
+  const int target_rook_lsf = ((flank & 0b01) * 3) | ((~flank & 0b01) * -4);
+  const int max_dx = std::abs(target_rook_lsf);
+
+  const int target_rook = Globals::bitboard[t_lsf + target_rook_lsf];
+
+  for (int dx = 1; dx < max_dx; ++dx) {
+    const int delta_lsf = (flank & 0b01) * (t_lsf + dx) + (~flank & 0b01) * (t_lsf - dx);
+
+    const bool rook_conditions =
+        !Bitboard::isRook(target_rook) || Globals::move_bitset[t_lsf + target_rook_lsf];
+
+    bool is_an_occupied_square = false;
+
+    // If any of the LSFs are "occupied", temporarily prevent castling.
+    for (SDL_Point occupied_square : Globals::opponent_occupancy) {
+      is_an_occupied_square = (delta_lsf == occupied_square.x);
+
+      if (is_an_occupied_square) {
+        break;
+      }
+    }
+
+    if (notEmpty(delta_lsf) || rook_conditions || is_an_occupied_square) {
+      break;
+    }
+
+    // If there's no intercepting piece, then allow castling.
+    if (dx == max_dx - 1 && dx == 2) {
+      Globals::castling_square.x = t_lsf + 2;
+      moveFunc(t_lsf + 2, t_lsf);
+    } else if (dx == max_dx - 1 && dx == 3) {
+      Globals::castling_square.y = t_lsf - 2;
+      moveFunc(t_lsf - 2, t_lsf);
+    }
+  }
+}
+
+void generateCastlingMove(int t_lsf, std::function<void(int, int)> moveFunc) {
+  // TODO: Refactor the "flank checker" using extraction.
+  //  Reset the data to prevent bugs
+  Globals::castling_square.x = Bitboard::Squares::no_sq;
+  Globals::castling_square.y = Bitboard::Squares::no_sq;
+
+  // Castling is temporarily prevented if the king is in check.
+  if (Globals::is_in_check) {
+    return;
+  }
+
+  const int king_color = Bitboard::getColor(Globals::bitboard[t_lsf]);
+  const int shift = (king_color & Bitboard::Sides::WHITE ? 0 : 2);
+
+  int long_castle = Bitboard::Castle::LONG_CASTLE << shift;
+  int short_castle = Bitboard::Castle::SHORT_CASTLE << shift;
+
+  if (Globals::move_bitset[t_lsf]) {
+    // If the king has moved, disable castling for both sides.
+    Globals::castling &= ~long_castle;
+    Globals::castling &= ~short_castle;
+
+    return;
+  }
+
+  // Check flanks for both castling sides.
+  for (int flank = 0b01; flank < 0b100; flank <<= 1) {
+    isFlankEmpty(flank, t_lsf, moveFunc);
+  }
+}
+
+void generateKnightMoves(int t_lsf, std::function<void(int, int)> moveFunc,
+                         bool for_occupied_squares) {
+  for (int i = KNIGHT_OFFSET_START; i < KNIGHT_OFFSET_END; ++i) {
+    const int dt_lsf = t_lsf + OFFSETS[i];
+
+    // The change or the delta position must be restricted to only 2 squares.
+    const int max_delta_squares = getMaxDeltaSquares(dt_lsf, t_lsf);
+
+    // Check if the square will be "out of bounds" if we add the delta LSF.
+    const bool is_out_of_bounds = dt_lsf < 0 || dt_lsf > Bitboard::Squares::h8;
+
+    // Check if the square does not contain a friendly piece.
+    const bool contains_friendly_piece =
+        notEmpty(dt_lsf) && !canCapture(dt_lsf, for_occupied_squares);
+
+    if ((for_occupied_squares || !contains_friendly_piece) && !is_out_of_bounds &&
+        max_delta_squares == 2) {
+      moveFunc(dt_lsf, t_lsf);
+    }
+  }
+}
+
+void generateKingMoves(int t_lsf, std::function<void(int, int)> moveFunc,
+                       bool for_occupied_squares) {
+  int king_moves = 0;
+
+  for (int i = 0; i < 8; ++i) {
+    const int target_square = OFFSETS[i] + t_lsf;
+
+    // Ensure that the king can only move 1 square.
+    const int max_delta_squares = getMaxDeltaSquares(target_square, t_lsf);
+
+    // Check if the square will be "out of bounds" if we add the delta LSF.
+    const bool is_out_of_bounds = target_square < 0 || target_square > Bitboard::Squares::h8;
+
+    // Check if the square does not contain a friendly piece.
+    const bool contains_friendly_piece = notEmpty(target_square) && !canCapture(target_square);
+
+    // Check if the square is in the occupancy square array.
+    bool is_an_occupied_square = false;
+
+    for (SDL_Point occupied_square : Globals::opponent_occupancy) {
+      is_an_occupied_square = (target_square == occupied_square.x);
+
+      if (is_an_occupied_square) {
+        break;
+      }
+    }
+
+    if (is_an_occupied_square) {
+      continue;
+    }
+
+    if ((!contains_friendly_piece || for_occupied_squares) && !is_out_of_bounds &&
+        max_delta_squares == 1) {
+      moveFunc(target_square, t_lsf);
+      king_moves++;
     }
   }
 }

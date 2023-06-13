@@ -1,7 +1,5 @@
 #include "evaluation.hpp"
 
-//Skid moment :nerd:
-
 namespace Evaluation {
 int pawn_count = 0;
 int bishop_count = 0;

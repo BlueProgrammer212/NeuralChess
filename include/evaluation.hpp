@@ -11,6 +11,7 @@ enum MaterialValue {
     BISHOP = 3,
     KNIGHT = 3,
 
+    //Major Pieces
     ROOK = 5,
     QUEEN = 9,
 

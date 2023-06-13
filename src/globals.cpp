@@ -3,7 +3,7 @@
 using namespace Bitboard;
 
 namespace Globals {
-std::vector<SDL_Window*> window_set = {};
+SDL_Window* window;
 int window_count = 0;
 
 SDL_Renderer* renderer = nullptr;
@@ -90,15 +90,6 @@ int black_eval = 30;
 int current_move = 0;
 
 unsigned int promotion_lsf = 0;
-
-void createWindow(const char* title, int width, int height) {
-  window_set.push_back(SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                        width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS));
-
-  if (window_set.at(window_count++) == nullptr) {
-    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create the window");
-  }
-}
 
 std::shared_ptr<AudioManager> audio_manager = std::make_shared<AudioManager>();
 

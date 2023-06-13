@@ -3,7 +3,7 @@
 FenParser* FenParser::s_Instance = nullptr;
 
 constexpr const char* INITIAL_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-constexpr const char* ROOK_ENDGAME = "qkqqqqqq/8/8/8/8/8/8/1KQQQQQ/8 w KQkq - 0 1";
+constexpr const char* KIWIPETE = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 
 FenParser::FenParser() : m_FEN(INITIAL_POSITION) {}
 

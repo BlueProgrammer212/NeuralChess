@@ -11,32 +11,31 @@ Interface::~Interface() {
 
 //TODO: Consider using an unsigned int instead of these bools.
 //TODO: Extract some regions into functions to increase clarity.
-void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_hints,
-                     bool exchange_turn, bool will_undo_move, bool is_castling) {
+void Interface::drop(int lsf, int old_lsf, int width, int height, const unsigned int flags) {
   //Check for friendly pieces.
   const int selected_piece = Bitboard::getColor(bitboard[old_lsf]);
   const int target_lsf = Bitboard::getColor(bitboard[lsf]);
 
   if (((selected_piece != target_lsf || bitboard[lsf] == Bitboard::Pieces::e) &&
        selected_piece == side) ||
-      supress_hints) {
+      flags & MoveFlags::SHOULD_SUPRESS_HINTS) {
 
-    const int num_of_execution = supress_hints ? 1 : static_cast<int>(move_hints.size());
+    const int num_of_execution =
+        flags & MoveFlags::SHOULD_SUPRESS_HINTS ? 1 : static_cast<int>(move_hints.size());
 
     for (int i = 0; i < num_of_execution; ++i) {
-      if (lsf == move_hints[i].x || supress_hints) {
+      if (lsf == move_hints[i].x || flags & MoveFlags::SHOULD_SUPRESS_HINTS) {
         //Exchange turns.
-        if (exchange_turn) {
-          side ^= Bitboard::Sides::WHITE;
-          side ^= Bitboard::Sides::BLACK;
-        }
+        bool exchange_turn = flags & MoveFlags::SHOULD_EXCHANGE_TURN;
+        side ^= ((exchange_turn & 0b1) << 1) | (exchange_turn & 0b1);
 
         //Check if the move can alter material.
         bool can_alter_material = MoveGenerator::notEmpty(lsf);
 
-        if (!will_undo_move) {
+        if (!(flags & WILL_UNDO_MOVE)) {
           auto last_move = SDL_Point{old_lsf, lsf};
 
+          //Record the previous move for the "undo" feature.
           ply_array.push_back(Ply{last_move, can_alter_material, bitboard[lsf], bitboard[old_lsf],
                                   move_bitset[old_lsf], move_bitset[lsf]});
 
@@ -74,8 +73,8 @@ void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_h
           int new_rook_delta_pos = (dx < 0 ? 1 : -1);
           int delta_old_rook_pos = (dx < 0 ? -4 : 3);
 
-          drop(lsf + new_rook_delta_pos, old_lsf + delta_old_rook_pos, BOX_WIDTH, BOX_HEIGHT, true,
-               false, false, true);
+          drop(lsf + new_rook_delta_pos, old_lsf + delta_old_rook_pos, BOX_WIDTH, BOX_HEIGHT,
+               SHOULD_SUPRESS_HINTS | IS_CASTLING);
 
           is_a_castling_move = true;
         }
@@ -146,7 +145,7 @@ void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_h
 
         //Log the algebraic notation of the move.
         //TODO: Use flags instead of boolean parameters to decrease ambiguity.
-        if (!is_castling && !will_undo_move) {
+        if (!(flags & MoveFlags::IS_CASTLING) && !(flags & MoveFlags::WILL_UNDO_MOVE)) {
           std::cout << MoveGenerator::toAlgebraicNotation(bitboard[lsf], old_lsf, lsf,
                                                           can_alter_material || is_en_passant,
                                                           is_a_castling_move, lsf - old_lsf);
@@ -159,7 +158,7 @@ void Interface::drop(int lsf, int old_lsf, int width, int height, bool supress_h
           std::cout << "\n\nDraw by Stalemate\n";
         }
 
-        if (supress_hints) {
+        if (flags & MoveFlags::SHOULD_SUPRESS_HINTS) {
           break;
         }
       }
@@ -186,7 +185,8 @@ void Interface::undo() {
   bool old_move_bit = move_data.old_move_bit;
   bool old_move_bit_in_dest = move_data.old_move_bit_in_dest;
 
-  drop(last_move.x, last_move.y, BOX_WIDTH, BOX_HEIGHT, true, true, true);
+  drop(last_move.x, last_move.y, BOX_WIDTH, BOX_HEIGHT,
+       SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN | WILL_UNDO_MOVE);
 
   //Put the "captured" piece back.
   if (is_capture) {

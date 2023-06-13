@@ -12,13 +12,13 @@ If you're interested, you can visit this website: https://www.chessprogramming.o
  
 ## Features
 - [x] Pseudo-legal move generator
-- [ ] Legal moves (including pins and checks)
-- [ ] Castling
-- [ ] En Passant
+- [x] Legal moves (including pins and checks)
+- [x] Castling
+- [x] En Passant
+- [x] FEN parser 
 - [ ] Simple GUI
 - [ ] Evaluation
 - [ ] PGN reader and "Game Review"
-- [ ] FEN parser 
 - [ ] Minimax algorithm
 - [ ] Alpha-beta pruning 
 - [ ] Move ordering for optimization

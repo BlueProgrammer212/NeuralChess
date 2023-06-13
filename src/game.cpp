@@ -35,18 +35,22 @@ P: Go to the previous move.
 }
 
 Game::~Game() {
-  SDL_DestroyWindow(window_set.back());
-
+  SDL_DestroyWindow(window);
   SDL_DestroyRenderer(renderer);
+  SDL_DestroyTexture(texture);
 
   Globals::bitboard.clear();
   Globals::move_bitset.reset();
   Globals::opponent_occupancy.clear();
+  Globals::legal_moves.clear();
 
   Globals::bitboard.shrink_to_fit();
   Globals::opponent_occupancy.shrink_to_fit();
+  Globals::legal_moves.shrink_to_fit();
 
   SDL_Quit();
+  Mix_Quit();
+  IMG_Quit();
 }
 
 void Game::playRandomly() {
@@ -54,7 +58,7 @@ void Game::playRandomly() {
     return;
   }
 
-  if (move_delay >= 1) {
+  if (move_delay >= 1000) {
     MoveGenerator::generateLegalMoves();
 
     if (game_state & GameState::DRAW || game_state & GameState::CHECKMATE) {
@@ -71,7 +75,7 @@ void Game::playRandomly() {
     }
 
     m_interface->drop(Globals::legal_moves[random].x, Globals::legal_moves[random].y, BOX_WIDTH,
-                      BOX_HEIGHT, true, true);
+                      BOX_HEIGHT, SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
 
     move_delay = 0;
   }
@@ -85,6 +89,7 @@ PerftData Game::moveGenerationTest(int depth) {
   const std::vector<LegalMove> legal_moves_copy = MoveGenerator::generateLegalMoves();
 
   PerftData data;
+
   auto& [num_of_positions, num_of_captures, num_of_checks, num_of_en_passant, num_of_castles,
          num_of_promotions] = data;
 
@@ -100,8 +105,7 @@ PerftData Game::moveGenerationTest(int depth) {
     const auto& move_data = MoveGenerator::makeMove(moves);
 
     //Exchange turns.
-    side ^= Bitboard::Sides::WHITE;
-    side ^= Bitboard::Sides::BLACK;
+    side ^= 0b11;
 
     bool check = MoveGenerator::isInCheck(0);
 
@@ -117,13 +121,10 @@ PerftData Game::moveGenerationTest(int depth) {
     num_of_en_passant += recursion_result.num_of_en_passant;
 
     //Exchange turns.
-    side ^= Bitboard::Sides::WHITE;
-    side ^= Bitboard::Sides::BLACK;
+    side ^= 0b11;
 
     MoveGenerator::unmakeMove(moves, move_data);
   }
-
-  MoveGenerator::generateLegalMoves();
 
   return data;
 }
@@ -139,11 +140,11 @@ void Game::init(const int width, const int height) {
   }
 
   //Initialize window.
-  createWindow("NeuralChess [DEBUG]", width, height);
+  window = SDL_CreateWindow("NeuralChess", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, width,
+                            height, SDL_WINDOW_SHOWN | SDL_WINDOW_MOUSE_FOCUS);
 
   //Initialize the renderer.
-  renderer =
-      SDL_CreateRenderer(window_set[0], -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
+  renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
 
   if (renderer == nullptr) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create the renderer.");
@@ -154,7 +155,7 @@ void Game::init(const int width, const int height) {
   BOX_HEIGHT = 600 / (Bitboard::BOARD_SIZE + 1);
 
   //Load the chess piece texture atlas.
-  TextureManager::LoadTexture("../../res/atlas.png");
+  TextureManager::LoadTexture("C:\\Users\\yayma\\Documents\\NeuralChess\\res\\atlas.png");
 
   SDL_RenderSetLogicalSize(renderer, width, height);
 
@@ -201,12 +202,8 @@ void Game::update() {
   last_time = time;
 
   move_delay += delta_time;
-  //playRandomly();
 
-  if (move_delay >= 20) {
-    Evaluation::countMaterial();
-    move_delay = 0;
-  }
+  playRandomly();
 }
 
 void Game::render() {
@@ -326,13 +323,24 @@ void Game::render() {
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 125);
     SDL_RenderFillRect(renderer, &bg_color);
 
-    SDL_Rect promotion_dialog = {(600 / 2) - (400 / 2), (600 / 2) - (250 / 2), 400, 250};
+    //Promotion dialog container.
+    const int screenWidth = 600;
+    const int screenHeight = 600;
+    const int dialogWidth = 50;
+    const int dialogHeight = 250;
+
+    const int dialogX = (screenWidth - dialogWidth) / 2;
+    const int dialogY = (screenHeight - dialogHeight) / 2;
+
+    SDL_Rect promotion_dialog = {dialogX, dialogY, dialogWidth, dialogHeight};
 
     SDL_SetRenderDrawColor(renderer, 0, 175, 141, 255);
     SDL_RenderFillRect(renderer, &promotion_dialog);
 
-    SDL_Rect queen_btn_src = {Bitboard::q * 333, 334, 333, 334};
-    SDL_Rect queen_btn_dest = {(600 / 2) - (400 / 2), (600 / 2) - (250 / 2), BOX_WIDTH, BOX_HEIGHT};
+    //Render button test.
+    SDL_Rect queen_btn_src = {((Bitboard::q - 1) % 6) * 333, 334, 333, 334};
+
+    SDL_Rect queen_btn_dest = {dialogX, dialogY, BOX_WIDTH, BOX_HEIGHT};
 
     SDL_RenderCopy(renderer, texture, &queen_btn_src, &queen_btn_dest);
   }
@@ -346,11 +354,11 @@ void Game::render() {
 void Game::resetBoard() {
   std::cout << "\nRestoring initial position... Please wait\n";
 
-  Globals::move_bitset.reset();
-  Globals::opponent_occupancy.clear();
+  move_bitset.reset();
+  opponent_occupancy.clear();
 
   //Clear the moves recorded from the previous game.
-  Globals::ply_array.clear();
+  ply_array.clear();
 
   //Reset every data.
   is_in_check = false;
@@ -363,6 +371,8 @@ void Game::resetBoard() {
 
   //Update the legal move array.
   MoveGenerator::generateLegalMoves();
+
+  should_show_promotion_dialog = false;
 
   if (is_in_check) {
     audio_manager->PlayWAV("../../res/check.wav");
@@ -415,7 +425,7 @@ void Game::events() {
         }
 
         //If there is a selected square, then drop it to the new LSF.
-        m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT);
+        m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT, SHOULD_EXCHANGE_TURN);
 
         Evaluation::countMaterial();
 
@@ -436,7 +446,7 @@ void Game::events() {
         }
 
         new_lsf = Interface::AABB(event.button.y, event.button.x);
-        m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT);
+        m_interface->drop(new_lsf, selected_lsf, BOX_WIDTH, BOX_HEIGHT, SHOULD_EXCHANGE_TURN);
 
         Globals::move_hints.clear();
         Globals::selected_lsf = Bitboard::no_sq;

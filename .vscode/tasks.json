@@ -1,12 +1,16 @@
 {
     "tasks": [
+        
         {
-            "type": "cppbuild",
+            "type": "shell",
             "label": "C/C++: g++.exe build active file",
             "command": "g++",
             "args": [
                 //Manually add the CPP files.
                 "${workspaceFolder}\\src\\*.cpp",
+                //Output executable file.
+                "-o",
+                "${workspaceFolder}\\bin\\debug\\NeuralChess.exe",
                 "-O3",
                 "-g",
                 "-Wall",
@@ -28,9 +32,6 @@
                 "${workspaceFolder}\\dependencies\\SDL2_image-2.6.3\\x86_64-w64-mingw32\\lib",
                 "-L",
                 "${workspaceFolder}\\dependencies\\SDL2_mixer-2.6.3\\x86_64-w64-mingw32\\lib",
-                //Output executable file.
-                "-o",
-                "${workspaceFolder}\\bin\\debug\\main.exe",
                 //Linker Inputs
                 "-lmingw32",
                 "-lSDL2main",
@@ -42,9 +43,14 @@
             "options": {
                 "cwd": "${workspaceFolder}"
             },
-            "problemMatcher": [
-                "$gcc"
-            ],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared",
+                "clear": false
+            },
+            "problemMatcher": "$gcc",
             "group": {
                 "kind": "build",
                 "isDefault": true

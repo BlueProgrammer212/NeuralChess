@@ -29,6 +29,8 @@ public:
   void playRandomly();
   void resetBoard();
 
+  void destroy() {delete this;}
+
 private:
   int time;
   int last_time;

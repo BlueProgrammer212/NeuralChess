@@ -66,10 +66,12 @@ namespace Globals
 
     extern int side;
     extern int en_passant;
-    extern int castling;
-    extern unsigned int promotion_lsfs;
+    extern int en_passant_legal_move_index;
 
-    extern int selected_lsf;
+    extern int castling;
+    extern unsigned int promotion_squares;
+
+    extern int selected_square;
 
     extern int game_state;
 
@@ -104,7 +106,9 @@ namespace Globals
     extern bool is_in_check;
     extern bool should_show_promotion_dialog;
 
-    extern int lsf_of_king_in_check;
+    extern bool show_legal_moves;
+
+    extern int square_of_king_in_check;
 
     extern SDL_Point castling_square;
 
@@ -117,7 +121,7 @@ namespace Globals
 
     extern std::shared_ptr<AudioManager> audio_manager;
 
-    //void createWindow(const char *title, int width, int height);
+    // void createWindow(const char *title, int width, int height);
 
     extern int window_count;
 

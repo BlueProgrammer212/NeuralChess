@@ -14,6 +14,8 @@ namespace Bitboard
 
     constexpr bool SHOULD_FLIP = false;
 
+    // clang-format off
+
     enum Sides { 
         BLACK = 1 << 0, 
         WHITE = 1 << 1 
@@ -44,11 +46,13 @@ namespace Bitboard
     };
     ///////////////////////////////////////////
 
+    // clang-format on
+
     // Least significant file mapping.
-    inline int toLSF(int file, int rank, bool should_flip = SHOULD_FLIP) noexcept
+    inline int toSquareIndex(int file, int rank, bool should_flip = SHOULD_FLIP) noexcept
     {
-        int lsf = (rank << 3) + file;
-        return (should_flip ? lsf ^ 0b111000 : lsf);
+        int square = (rank << 3) + file;
+        return (should_flip ? square ^ 0b111000 : square);
     }
 
     // Least significant rank mapping.
@@ -87,24 +91,28 @@ namespace Bitboard
     //////////////////////////////////////////
 
     // Convert little-endian file-rank mapping to big-endian file-rank and vice versa.
-    inline int flipVertically(int lsf) { return lsf ^ 0x00038; }
+    inline int flipVertically(int square) { return square ^ 0x00038; }
 
     // Convert a little-endian position to a big-endian LSF and vice versa.
     inline int flipVertically(int file, int rank)
     {
-        const int lsf = toLSF(file, rank);
-        return lsf ^ 0b111000;
+        const int square = toSquareIndex(file, rank);
+        return square ^ 0b111000;
     }
 
     // Least significant file to coordinates.
-    [[nodiscard]] inline const SDL_Point lsfToCoord(int lsf, bool should_flip = SHOULD_FLIP) noexcept
+    [[nodiscard]] inline const SDL_Point squareToCoord(int square, bool should_flip = SHOULD_FLIP) noexcept
     {
-        int final_lsf = (should_flip ? flipVertically(lsf) : lsf);
-        return {final_lsf & BOARD_SIZE, final_lsf >> 3};
+        // clang-format off
+        int final_square = (should_flip * flipVertically(square)) |
+                           (!should_flip * square);
+
+        return {final_square & BOARD_SIZE, final_square >> 3};
+        // clang-format on
     }
 
     // Least significant rank to coordinates.
-    [[nodiscard]] inline const SDL_Point lsrToCoord(int lsr, int should_flip = SHOULD_FLIP) noexcept
+    [[nodiscard]] inline const SDL_Point lsrSquareToCoord(int lsr, int should_flip = SHOULD_FLIP) noexcept
     {
         int final_lsr = (should_flip ? flipVertically(lsr) : lsr);
         return {final_lsr >> 3, final_lsr & BOARD_SIZE};
@@ -112,23 +120,24 @@ namespace Bitboard
 
     inline int getColor(int type)
     {
-        return (type > 6 ? Sides::BLACK : Sides::WHITE);
+        bool is_black = type > 6;
+        return (is_black * 0b01) | (!is_black * 0b10);
     }
 
     // Increment the ranks for the LSF. Add 8 to the LSF depending on how much ranks.
-    inline int addRank(int lsf, int rank, bool should_flip = SHOULD_FLIP)
+    inline int addRank(int square, int rank, bool should_flip = SHOULD_FLIP)
     {
-        int final_lsf = (should_flip ? flipVertically(lsf) : lsf);
-        const auto coords = lsfToCoord(final_lsf);
-        return toLSF(coords.x, coords.y + rank);
+        int final_square = (should_flip ? flipVertically(square) : square);
+        const auto coords = squareToCoord(final_square);
+        return toSquareIndex(coords.x, coords.y + rank);
     }
 
     // Check if the coordniate is an empty square
     // The type must be a 2 dimensional vector.
     template <typename T = SDL_Point>
-    inline bool isCoordEmpty(const T& vector) noexcept
+    inline bool isCoordEmpty(const T &vector) noexcept
     {
         return vector.x & Bitboard::Squares::no_sq ||
                vector.y & Bitboard::Squares::no_sq;
     }
-} //namespace Bitboard
+} // namespace Bitboard

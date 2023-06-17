@@ -19,11 +19,13 @@ bool display_legal_move_hints = true;
 
 bool is_mouse_down = false;
 
-int lsf_of_king_in_check = Bitboard::Squares::no_sq;
+int square_of_king_in_check = Bitboard::Squares::no_sq;
 
-//This contains the pieces and the LSF.
+//This contains the pieces and the square.
 //TODO: Consider using a 64-bit unsigned integer instead to represent
 //the pieces. To distinguish pieces, we can use 14 bits.
+
+// clang-format off
 
 std::vector<int> bitboard = {
     r, n, b, q, k, b, n, r,
@@ -36,14 +38,16 @@ std::vector<int> bitboard = {
     R, N, B, Q, K, B, N, R,
 };
 
+// clang-format on
+
 std::vector<SDL_Point> opponent_occupancy = {};
 
 constexpr std::size_t TOTAL_SQUARES = 64U;
 
 std::bitset<TOTAL_SQUARES> move_bitset;
 
-//x - Target LSF.
-//y - Old LSF where the piece is located.
+//x - Target square.
+//y - Old square where the piece is located.
 std::vector<LegalMove> legal_moves = {};
 std::vector<LegalMove> move_hints = {};
 
@@ -71,6 +75,9 @@ double time = 0.0;
 
 //Define the En Passant Square Position.
 int en_passant = Squares::no_sq;
+int en_passant_legal_move_index = -1;
+
+bool show_legal_moves = false;
 
 //Castling Rights
 int castling = 0;
@@ -79,17 +86,18 @@ int game_state = GameState::OPENING;
 
 SDL_Point current_position = SDL_Point{0, 0};
 
-int selected_lsf = Squares::no_sq;
-
+int selected_square = Squares::no_sq;
 int halfmove_clock = 0;
-
 int move_delay = 0;
-
 int black_eval = 30;
-
 int current_move = 0;
 
-unsigned int promotion_lsf = 0;
+//LSB to 2nd LSB: Color of the pawn.
+//3rd LSB: Promote to Queen.
+//4th LSB: Promote to Rook.
+//5th LSB: Promote to Bishop.
+//6th LSB: Promote to Knight
+unsigned int promotion_squares = 0;
 
 std::shared_ptr<AudioManager> audio_manager = std::make_shared<AudioManager>();
 

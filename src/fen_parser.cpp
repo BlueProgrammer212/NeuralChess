@@ -5,6 +5,9 @@ FenParser* FenParser::s_Instance = nullptr;
 constexpr const char* INITIAL_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 constexpr const char* KIWIPETE = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
 
+constexpr const char* EN_PASSANT_TEST = "kbb5/p2p4/P7/2P4p/7P/6BK/7P/5B2 w - - 0 1";
+constexpr const char* PAWN_PROMOTION_TEST = "8/P7/8/8/8/7k/8/8 b - - 0 1";
+
 FenParser::FenParser() : m_FEN(INITIAL_POSITION) {}
 
 FenParser::~FenParser() {}
@@ -63,8 +66,8 @@ int FenParser::init() {
     }
 
     if (piece_type != std::string::npos) {
-      int lsf = Bitboard::toLSF(coord.x, coord.y);
-      Globals::bitboard[lsf] = piece_type;
+      int square = Bitboard::toSquareIndex(coord.x, coord.y);
+      Globals::bitboard[square] = piece_type;
       coord.x++;
       continue;
     }

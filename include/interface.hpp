@@ -1,7 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include <algorithm>
 #include <SDL2/SDL.h>
+
 #include "globals.hpp"
 #include "move.hpp"
 
@@ -22,9 +24,8 @@ public:
     // This is for the buttons.
     static int AABB(int x, int y);
 
-    void drop(int lsf, int old_lsf, int width, int height, const unsigned int flags);
+    void drop(int square, int old_square, const unsigned int flags);
     void undo();
-    void drag(int width, int height);
 
 private:
     int mouse_position_x;

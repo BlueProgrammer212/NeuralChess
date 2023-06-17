@@ -29,19 +29,19 @@ void TextureManager::QueryTexture(int max_columns, int max_rows) {
   m_source_width /= max_columns;
   m_source_height /= max_rows;
 
-  std::cout << m_source_width << "\n" 
-            << m_source_height << "\n";
+  // std::cout << m_source_width << "\n"
+  //           << m_source_height << "\n";
 }
 
 //GUI rendering
 void TextureManager::DrawButton(const SDL_Point& pos, const int width, const int height) {
   SDL_Rect rect = {pos.x, pos.y, width, height};
   SDL_RenderDrawRect(Globals::renderer, &rect);
-} 
+}
 
 //This is used for the drag and drop feature.
 void TextureManager::DrawPiece(const int type) {
-  if (Globals::selected_lsf & Bitboard::no_sq || !Globals::is_mouse_down) {
+  if (Globals::selected_square & Bitboard::no_sq || !Globals::is_mouse_down) {
     return;
   }
 
@@ -61,7 +61,7 @@ void TextureManager::DrawPiece(const int type) {
 void TextureManager::AnimatePiece(int target_square, int type) {
 
   //Convert the target square index into a point.
-  const auto pos = Bitboard::lsfToCoord(target_square);
+  const auto pos = Bitboard::squareToCoord(target_square);
 
   SDL_Point last_move{Bitboard::Squares::no_sq, Bitboard::Squares::no_sq};
 
@@ -70,7 +70,7 @@ void TextureManager::AnimatePiece(int target_square, int type) {
     last_move = Globals::ply_array.back().move;
   }
 
-  if (Globals::is_mouse_down && Globals::selected_lsf == target_square) {
+  if (Globals::is_mouse_down && Globals::selected_square == target_square) {
     //This is important for the drag and drop functionality.
     return;
   }

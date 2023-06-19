@@ -31,22 +31,24 @@ int getMaxDeltaSquares(const int delta_square, const int square_prime) {
 void pawnPromotion(const int t_square) {
   const int piece_color = Bitboard::getColor(Globals::bitboard[t_square]);
 
-  if (Bitboard::isPawn(Globals::bitboard[t_square])) {
-    const int rank = t_square >> 3;
-    const bool is_white = piece_color & Bitboard::Sides::WHITE;
-    const bool is_black = piece_color & Bitboard::Sides::BLACK;
+  if (!Bitboard::isPawn(Globals::bitboard[t_square])) {
+    return;
+  }
 
-    if ((rank == 0 && is_white) || (rank == Bitboard::BOARD_SIZE && is_black)) {
-      Globals::should_show_promotion_dialog = true;
+  const int rank = t_square >> 3;
+  const bool is_white = piece_color & Bitboard::Sides::WHITE;
+  const bool is_black = piece_color & Bitboard::Sides::BLACK;
 
-      const int new_promotion_squares =
-          (is_white ? Bitboard::Sides::WHITE : Bitboard::Sides::BLACK);
+  if ((rank == 0 && is_white) || (rank == Bitboard::BOARD_SIZE && is_black)) {
+    Globals::should_show_promotion_dialog = true;
 
-      Globals::promotion_squares |= new_promotion_squares;
-      Globals::promotion_squares &= ~((is_white ? Bitboard::Sides::BLACK : Bitboard::Sides::WHITE));
+    const int pawn_color = (is_white * 0b10) | (!is_white * 0b01);
 
-      Globals::side ^= 0b11;
-    }
+    //Modify the first and second LSB.
+    Globals::promotion_squares |= pawn_color;
+    Globals::promotion_squares &= ~((is_white * 0b01) | (!is_white * 0b10));
+
+    Globals::side ^= 0b11;
   }
 }
 
@@ -56,8 +58,8 @@ auto makeMove(const LegalMove& move) -> const ImaginaryMove {
   const int team = Bitboard::getColor(Globals::bitboard[move.x]);
 
   //Store the old types of the data to be overwritten.
-  const int old_piece = Globals::bitboard[move.y];
-  const int captured_piece = Globals::bitboard[move.x];
+  int old_piece = Globals::bitboard[move.y];
+  int captured_piece = Globals::bitboard[move.x];
 
   int en_passant_capture_square = Bitboard::Squares::no_sq;
   int en_passant_capture_piece_type = Bitboard::Pieces::e;
@@ -524,14 +526,7 @@ void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> mo
             break;
           }
 
-          //If the pawn reaches the back rank, promotion must be legal.
-          if (for_legal_moves && target_square <= 7) {
-            for (int i = 2; i < 6; ++i) {
-              Globals::legal_moves.push_back(LegalMove{target_square, t_square, true, i});
-            }
-          } else {
-            moveFunc(target_square, t_square);
-          }
+          moveFunc(target_square, t_square);
         }
 
         enPassant(t_square, moveFunc);
@@ -547,17 +542,11 @@ void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> mo
           target_square = Bitboard::addRank(t_square, i);
 
           // Halt the iteration if there is an intercepting piece.
-          if (notEmpty(target_square))
+          if (notEmpty(target_square)) {
             break;
-
-          if (for_legal_moves && target_square >= 56) {
-            // Possible promotions.
-            for (int i = 6; i < 10; ++i) {
-              Globals::legal_moves.push_back(LegalMove{target_square, t_square, true, i});
-            }
-          } else {
-            moveFunc(target_square, t_square);
           }
+
+          moveFunc(target_square, t_square);
         }
 
         enPassant(t_square, moveFunc);
@@ -612,7 +601,7 @@ void searchForOccupiedSquares() {
 const int getOwnKing() {
   // Yields {1, 7} depending on the player to move.
   const int piece_type = ((Globals::side & 0b01) * 7) | ((~Globals::side & 0b01) * 1);
-  
+
   const auto it = std::find(std::begin(Globals::bitboard), std::end(Globals::bitboard), piece_type);
 
   if (it != std::end(Globals::bitboard)) {

@@ -4,6 +4,7 @@
 #include "bitboard.hpp"
 #include "audio_manager.hpp"
 #include <memory>
+#include <tuple>
 
 constexpr unsigned int FPS = 60;
 constexpr unsigned int FRAME_DELAY = FPS / 1000;
@@ -100,6 +101,7 @@ namespace Globals
     extern std::bitset<64U> move_bitset;
 
     extern std::vector<Ply> ply_array;
+    extern std::vector<std::tuple<int, int, int>> move_squares;
 
     extern std::vector<SDL_Rect> quad_vector;
 

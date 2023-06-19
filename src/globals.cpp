@@ -45,6 +45,7 @@ std::vector<SDL_Point> opponent_occupancy = {};
 constexpr std::size_t TOTAL_SQUARES = 64U;
 
 std::bitset<TOTAL_SQUARES> move_bitset;
+std::vector<std::tuple<int, int, int>> move_squares = {};
 
 //x - Target square.
 //y - Old square where the piece is located.
@@ -94,9 +95,9 @@ int current_move = 0;
 
 //LSB to 2nd LSB: Color of the pawn.
 //3rd LSB: Promote to Queen.
-//4th LSB: Promote to Rook.
-//5th LSB: Promote to Bishop.
-//6th LSB: Promote to Knight
+//4th LSB: Promote to Bishop.
+//5th LSB: Promote to Knight
+//6th LSB: Promote to Rook.
 unsigned int promotion_squares = 0;
 
 std::shared_ptr<AudioManager> audio_manager = std::make_shared<AudioManager>();

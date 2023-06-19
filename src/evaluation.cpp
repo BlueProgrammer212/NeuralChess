@@ -1,81 +1,38 @@
 #include "evaluation.hpp"
 
 namespace Evaluation {
-int pawn_count = 0;
-int bishop_count = 0;
-int knight_count = 0;
-int rook_count = 0;
-int queen_count = 0;
+int evaluatePosition() {
+  //TODO: Monitor king safety.
+  //TODO: Check for possible checkmates.
+  //TODO: Implement endgame tablebases.
+  //TODO: Use transposition tables for better opening.
+  //TODO: Corner the opposing king to checkmate.
 
-int countMaterial() {
-  Globals::black_eval = 30;
+  
 
-  pawn_count = 0;
-  bishop_count = 0;
-  knight_count = 0;
-  rook_count = 0;
-  queen_count = 0;
+  return 0;
+}
 
-  for (int type : Globals::bitboard) {
-    int color = Bitboard::getColor(type);
+int evaluateMaterial() {
+  int score = 0;
 
-    if (color & Bitboard::Sides::WHITE || type == Bitboard::Pieces::e) {
-      continue;
-    }
+  for (int square = 0; square < 64; ++square) {
+    const int type = Globals::bitboard[square];
+    const int color = Bitboard::getColor(type);
 
     if (Bitboard::isPawn(type)) {
-      ++pawn_count;
-    } else if (Bitboard::isBishop(type)) {
-      ++bishop_count;
+      score += (color & 0b10 ? PAWN : -PAWN);
     } else if (Bitboard::isKnight(type)) {
-      ++knight_count;
+      score += (color & 0b10 ? KNIGHT : -KNIGHT);
+    } else if (Bitboard::isBishop(type)) {
+      score += (color & 0b10 ? BISHOP : -BISHOP);
     } else if (Bitboard::isRook(type)) {
-      ++rook_count;
+      score += (color & 0b10 ? ROOK : -ROOK);
     } else if (Bitboard::isQueen(type)) {
-      ++queen_count;
+      score += (color & 0b10 ? QUEEN : -QUEEN);
     }
   }
 
-  //Summation of material value.
-  Globals::black_eval += pawn_count * MaterialValue::PAWN;
-  Globals::black_eval += bishop_count * MaterialValue::BISHOP;
-  Globals::black_eval += knight_count * MaterialValue::KNIGHT;
-  Globals::black_eval += rook_count * MaterialValue::ROOK;
-  Globals::black_eval += queen_count * MaterialValue::QUEEN;
-
-  pawn_count = 0;
-  bishop_count = 0;
-  knight_count = 0;
-  rook_count = 0;
-  queen_count = 0;
-
-  for (int type : Globals::bitboard) {
-    int color = Bitboard::getColor(type);
-
-    if (color & Bitboard::Sides::BLACK || type == Bitboard::Pieces::e) {
-      continue;
-    }
-
-    if (Bitboard::isPawn(type)) {
-      ++pawn_count;
-    } else if (Bitboard::isBishop(type)) {
-      ++bishop_count;
-    } else if (Bitboard::isKnight(type)) {
-      ++knight_count;
-    } else if (Bitboard::isRook(type)) {
-      ++rook_count;
-    } else if (Bitboard::isQueen(type)) {
-      ++queen_count;
-    }
-  }
-
-  //Subtract the white eval to the black eval
-  Globals::black_eval -= pawn_count * MaterialValue::PAWN;
-  Globals::black_eval -= bishop_count * MaterialValue::BISHOP;
-  Globals::black_eval -= knight_count * MaterialValue::KNIGHT;
-  Globals::black_eval -= rook_count * MaterialValue::ROOK;
-  Globals::black_eval -= queen_count * MaterialValue::QUEEN;
-
-  return Globals::black_eval;
+  return score;
 }
 }  // namespace Evaluation

@@ -5,26 +5,19 @@
 #include "bitboard.hpp"
 
 enum MaterialValue {
-    PAWN = 1,
+    PAWN = 100,
     
     //Minor Pieces
-    BISHOP = 3,
-    KNIGHT = 3,
+    BISHOP = 300,
+    KNIGHT = 300,
 
     //Major Pieces
-    ROOK = 5,
-    QUEEN = 9,
+    ROOK = 500,
+    QUEEN = 900,
 
-    KING = INT32_MAX
+    KING = INT_MAX
 };
 
 namespace Evaluation {
-    extern int pawn_count;
-    extern int bishop_count;
-    extern int knight_count;
-    extern int rook_count;
-    extern int queen_count;
-
-    //Depth = 0
-    int countMaterial();
+    int evaluateMaterial();
 }

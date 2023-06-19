@@ -11,7 +11,7 @@
                 //Output executable file.
                 "-o",
                 "${workspaceFolder}\\bin\\debug\\NeuralChess.exe",
-                "-O3",
+                "-O3", //-O0 for debugging. -O3 for release.
                 "-g",
                 "-Wall",
                 "-m64",

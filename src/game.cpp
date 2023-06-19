@@ -45,10 +45,6 @@ Game::~Game() {
 }
 
 void Game::playRandomly() {
-  if (Globals::side & Bitboard::Sides::WHITE) {
-    return;
-  }
-
   if (move_delay >= 10) {
     MoveGenerator::generateLegalMoves();
 
@@ -78,9 +74,9 @@ void Game::playRandomly() {
   }
 }
 
-PerftData Game::moveGenerationTest(int depth) {
+int Game::minimaxSearch(int depth, bool maximizing_player, int alpha, int beta) {
   if (depth == 0) {
-    return PerftData{1, 0};
+    return Evaluation::evaluateMaterial();
   }
 
   MoveGenerator::generateLegalMoves();
@@ -88,47 +84,86 @@ PerftData Game::moveGenerationTest(int depth) {
   std::vector<LegalMove> legal_moves_copy;
 
   auto isNotEmpty = [](const LegalMove& move) {
-    return move.x != Bitboard::Squares::no_sq;
+    return bitboard[move.y] != Bitboard::Pieces::e && move.y != Bitboard::Squares::no_sq;
   };
 
   std::copy_if(std::begin(Globals::legal_moves), std::end(Globals::legal_moves),
                std::back_inserter(legal_moves_copy), isNotEmpty);
 
-  PerftData data;
+  if (maximizing_player) {
+    int maxEval = INT_MIN;
 
-  auto& [num_of_positions, num_of_captures, num_of_checks, num_of_en_passant, num_of_castles,
-         num_of_promotions] = data;
+    for (const LegalMove& moves : legal_moves_copy) {
+      const auto& move_data = MoveGenerator::makeMove(moves);
+      side ^= 0b11;
 
-  for (const LegalMove& moves : legal_moves_copy) {
-    if (MoveGenerator::canCapture(moves.x)) {
-      num_of_captures++;
+      int score = minimaxSearch(depth - 1, false, alpha, beta);
+
+      side ^= 0b11;
+      MoveGenerator::unmakeMove(moves, move_data);
+
+      maxEval = std::max(maxEval, score);
+      alpha = std::max(alpha, score);
+
+      if (beta <= alpha) {
+        break;  // Beta cutoff, no need to explore further
+      }
     }
 
-    const auto& move_data = MoveGenerator::makeMove(moves);
+    return maxEval;
+  } else {
+    int minEval = INT_MAX;
 
-    //Exchange turns.
-    side ^= 0b11;
+    for (const LegalMove& moves : legal_moves_copy) {
+      const auto& move_data = MoveGenerator::makeMove(moves);
+      side ^= 0b11;
 
-    bool check = MoveGenerator::isInCheck();
+      int score = minimaxSearch(depth - 1, true, alpha, beta);
 
-    if (check) {
-      num_of_checks++;
+      side ^= 0b11;
+      MoveGenerator::unmakeMove(moves, move_data);
+
+      minEval = std::min(minEval, score);
+      beta = std::min(beta, score);
+
+      if (beta <= alpha) {
+        break;  // Alpha cutoff, no need to explore further
+      }
     }
 
-    const auto recursion_result = moveGenerationTest(depth - 1);
+    return minEval;
+  }
+}
 
-    num_of_positions += recursion_result.num_of_positions;
-    num_of_captures += recursion_result.num_of_captures;
-    num_of_checks += recursion_result.num_of_checks;
-    num_of_en_passant += recursion_result.num_of_en_passant;
+void Game::playBestMove(int depth) {
+  LegalMove best_move;
+  int best_score = INT_MIN;
 
-    //Exchange turns.
-    side ^= 0b11;
+  MoveGenerator::generateLegalMoves();
 
-    MoveGenerator::unmakeMove(moves, move_data);
+  std::vector<LegalMove> legal_moves_copy;
+
+  auto isNotEmpty = [](const LegalMove& move) {
+    return bitboard[move.y] != Bitboard::Pieces::e && move.y != Bitboard::Squares::no_sq;
+  };
+
+  std::copy_if(std::begin(Globals::legal_moves), std::end(Globals::legal_moves),
+               std::back_inserter(legal_moves_copy), isNotEmpty);
+
+  for (const LegalMove& move : legal_moves_copy) {
+    const auto& move_data = MoveGenerator::makeMove(move);
+
+    int score = minimaxSearch(depth - 1, true, INT_MIN, INT_MAX);
+
+    if (score > best_score) {
+      best_score = score;
+      best_move = move;
+    }
+
+    MoveGenerator::unmakeMove(move, move_data);
   }
 
-  return data;
+  m_interface->drop(best_move.x, best_move.y, SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
 }
 
 void Game::init(const int width, const int height) {
@@ -195,7 +230,7 @@ void Game::init(const int width, const int height) {
   //Settings::init();
 
   MoveGenerator::renderMove(-1, -1);
-  Evaluation::countMaterial();
+  Evaluation::evaluateMaterial();
 }
 
 void Game::update() {
@@ -295,6 +330,7 @@ void Game::render() {
 
       const SDL_Rect dest = {initial_pos.x * BOX_WIDTH, initial_pos.y * BOX_HEIGHT, BOX_WIDTH,
                              BOX_HEIGHT};
+
       const SDL_Rect final_dest = {pos.x * BOX_WIDTH, pos.y * BOX_HEIGHT, BOX_WIDTH, BOX_HEIGHT};
 
       SDL_SetRenderDrawColor(renderer, 200, 200, 0, 125);
@@ -372,6 +408,7 @@ void Game::resetBoard() {
 
   //Clear the moves recorded from the previous game.
   ply_array.clear();
+  move_squares.clear();
 
   //Reset every data.
   is_in_check = false;
@@ -419,8 +456,14 @@ void Game::events() {
         break;
 
       case SDL_MOUSEBUTTONDOWN:
-        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE ||
-            Globals::should_show_promotion_dialog) {
+        //If the game already ended, then we should disable board interaction.
+        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE) {
+          break;
+        }
+
+        //If the dialog is open, board interaction is temporarily disabled.
+        if (Globals::should_show_promotion_dialog) {
+
           break;
         }
 
@@ -441,7 +484,7 @@ void Game::events() {
         //If there is a selected square, then drop it to the new square.
         m_interface->drop(new_square, selected_square, SHOULD_EXCHANGE_TURN);
 
-        Evaluation::countMaterial();
+        Evaluation::evaluateMaterial();
 
         //If it's not checkmate yet or draw.
         // if (game_state & GameState::OPENING) {
@@ -470,23 +513,7 @@ void Game::events() {
         break;
       case SDL_KEYDOWN:
         if (event.key.keysym.sym == SDLK_p) {
-          //Run perft test.
-          const int max_depth = 5;
-
-          int current_depth = 0;
-
-          std::cout << "\n\n----------------------PERFT TEST RESULTS-----------------------\n";
-
-          for (; current_depth < max_depth; ++current_depth) {
-            auto perf_result = moveGenerationTest(current_depth);
-
-            std::cout << "Depth: " << current_depth << " Captures: " << perf_result.num_of_captures
-                      << " Checks: " << perf_result.num_of_checks
-                      << " E.P: " << perf_result.num_of_en_passant
-                      << " Positions: " << perf_result.num_of_positions << "\n";
-          }
-
-          std::cout << "---------------------------------------------------------------\n\n";
+          playBestMove(2);
         }
 
         if (event.key.keysym.sym == SDLK_r && selected_square != Bitboard::Squares::no_sq) {

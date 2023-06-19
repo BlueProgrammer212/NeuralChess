@@ -3,6 +3,8 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <memory>
+#include <thread>
+#include <future>
 
 #include "globals.hpp"
 #include "texture.hpp"
@@ -25,11 +27,14 @@ public:
   void events();
 
   inline bool isRunning() const { return m_running; }
-  inline PerftData moveGenerationTest(int depth);
+  int minimaxSearch(int depth, bool maximizing_player, int alpha, int beta);
+
   void playRandomly();
+  void playBestMove(int depth);
+
   void resetBoard();
 
-  void destroy() {delete this;}
+  void destroy() { delete this; }
 
 private:
   int time;

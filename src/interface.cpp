@@ -55,6 +55,9 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
           move_bitset[old_square],
           move_bitset[square]
       };
+
+      Globals::move_squares.push_back(
+          std::make_tuple(square, bitboard[square], Globals::side));
     // clang-format on
 
     ply_array.push_back(move);
@@ -73,6 +76,9 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
 
   bitboard[square] = bitboard[old_square];
   bitboard[old_square] = Bitboard::e;
+
+  //Check for pawn promotions.
+  MoveGenerator::pawnPromotion(square);
 
   //Update the move bitset.
   move_bitset[square] = true;
@@ -119,9 +125,6 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
 
   time = 0.0;
 
-  //Check for pawn promotions.
-  MoveGenerator::pawnPromotion(square);
-
   is_in_check = MoveGenerator::isInCheck();
 
   //Update the legal move array.
@@ -142,8 +145,6 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
 
   //50-move rule implementation.
   if (halfmove_clock >= 50) {
-    std::cout << "Draw by 50-move rule.\n";
-
     game_state = GameState::DRAW;
   }
 
@@ -179,7 +180,9 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
   if (game_state & GameState::CHECKMATE) {
     const char* winner = (Globals::side & Bitboard::Sides::BLACK ? "White" : "Black");
     std::cout << "\n\nCheckmate! " << winner << " is victorious.\n";
-  } else if (game_state & GameState::DRAW && halfmove_clock < 50) {
+  } else if (halfmove_clock >= 50) {
+    std::cout << "\n\nDraw by 50-move rule.\n";
+  } else if (game_state & GameState::DRAW) {
     std::cout << "\n\nDraw by Stalemate\n";
   }
 
@@ -195,7 +198,7 @@ void Interface::undo() {
 
   Ply move_data = ply_array[--current_move];
 
-  //TODO: Use the C++17 feature
+  //TODO: Use the C++17 feature to destructure properties into individual variables.
   SDL_Point last_move = move_data.move;
   bool is_capture = move_data.is_capture;
   int captured_piece = move_data.old_piece_in_dest;

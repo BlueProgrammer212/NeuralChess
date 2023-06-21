@@ -149,23 +149,8 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
   }
 
   //Checkmate detection.
-  int legal_move_count = 0;
-
-  for (LegalMove hint_square : Globals::legal_moves) {
-    if (hint_square.x & Bitboard::Squares::no_sq) {
-      continue;
-    }
-
-    legal_move_count++;
-  }
-
-  if (legal_move_count <= 0) {
-    if (is_in_check) {
-      game_state |= GameState::CHECKMATE;
-    } else {
-      game_state |= GameState::DRAW;
-    }
-  }
+  game_state |= GameState::CHECKMATE * MoveGenerator::isCheckmate() |
+                GameState::DRAW * MoveGenerator::isStalemate();
 
   //Log the algebraic notation of the move.
   if (!(flags & MoveFlags::IS_CASTLING) && !(flags & MoveFlags::WILL_UNDO_MOVE)) {

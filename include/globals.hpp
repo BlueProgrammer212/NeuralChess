@@ -42,6 +42,8 @@ struct LegalMove
 
     // The pawn will be promoted to a queen by default.
     int will_promote_to{Bitboard::Pieces::Q};
+
+    int score;
 };
 
 struct PerftData

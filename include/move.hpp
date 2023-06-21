@@ -42,8 +42,17 @@ namespace MoveGenerator
     constexpr int KNIGHT_OFFSET_START = 8;
     constexpr int KNIGHT_OFFSET_END = 16;
 
+    enum OccupiedSquareMapFlags
+    {
+        PAWN_OCCUPIED_SQUARES_MAP = 1 << 1,
+        KING_OCCUPIED_SQUARES_MAP = 1 << 2,
+        OPPONENT_OCCUPIED_SQUARES_MAP = 1 << 3,
+        PLAYER_TO_MOVE_OCCUPIED_SQUARES_MAP = 1 << 4
+    };
+
     // Add the LSF in the legal move array
-    void addMove(const int t_square, const int old_square) noexcept;
+    void
+    addMove(const int t_square, const int old_square) noexcept;
 
     // Set the LSF as an "occupied square"
     void addOccupancySquare(const int t_square, const int old_square) noexcept;
@@ -101,7 +110,7 @@ namespace MoveGenerator
     void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> moveFunc,
                                 bool for_occupied_squares = false, bool for_legal_moves = false);
 
-    void searchForOccupiedSquares();
+    void searchForOccupiedSquares(int filter = OPPONENT_OCCUPIED_SQUARES_MAP);
 
     // Scan the whole bitboard to find the king.
     const int getOwnKing();
@@ -110,5 +119,9 @@ namespace MoveGenerator
 
     void filterPseudoLegalMoves(const int t_square, std::vector<LegalMove> &hint_square_array);
 
-    const std::vector<LegalMove> &generateLegalMoves();
+    std::vector<LegalMove> &generateLegalMoves();
+
+    const bool isInTerminalCondition();
+    const bool isCheckmate();
+    const bool isStalemate();
 }; // namespace MoveGenerator

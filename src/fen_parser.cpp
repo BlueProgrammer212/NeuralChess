@@ -3,10 +3,7 @@
 FenParser* FenParser::s_Instance = nullptr;
 
 constexpr const char* INITIAL_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-constexpr const char* KIWIPETE = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
-
-constexpr const char* EN_PASSANT_TEST = "kbb5/p2p4/P7/2P4p/7P/6BK/7P/5B2 w - - 0 1";
-constexpr const char* PAWN_PROMOTION_TEST = "8/P7/8/8/8/7k/8/8 b - - 0 1";
+constexpr const char* BACK_RANK_MATE = "1k6/ppp5/8/8/8/8/6R1/8 w KQKq - 0 1";
 
 FenParser::FenParser() : m_FEN(INITIAL_POSITION) {}
 
@@ -73,13 +70,20 @@ int FenParser::init() {
     }
   }
 
-  if (is_white_to_move) {
-    Globals::side |= Bitboard::Sides::WHITE;
-    Globals::side &= ~Bitboard::Sides::BLACK;
-  } else {
-    Globals::side |= Bitboard::Sides::BLACK;
-    Globals::side &= ~Bitboard::Sides::WHITE;
+  Globals::side |= Bitboard::Sides::WHITE;
+
+  if (!is_white_to_move) {
+    Globals::side ^= 0b11;
   }
 
+  //TODO: Update the castling rights in the flag.
+  
+
   return 0;
+}
+
+void FenParser::updateFEN() {
+  std::string ascii_pieces = ".KQBNRPkqbnrp";
+
+  
 }

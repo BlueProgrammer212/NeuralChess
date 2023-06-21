@@ -90,7 +90,10 @@ SDL_Point current_position = SDL_Point{0, 0};
 int selected_square = Squares::no_sq;
 int halfmove_clock = 0;
 int move_delay = 0;
-int black_eval = 30;
+
+int black_eval = 0;
+int white_eval = 0;
+
 int current_move = 0;
 
 //LSB to 2nd LSB: Color of the pawn.

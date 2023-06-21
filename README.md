@@ -17,10 +17,10 @@ If you're interested, you can visit this website: https://www.chessprogramming.o
 - [x] En Passant
 - [x] FEN parser 
 - [ ] Simple GUI
-- [ ] Evaluation
+- [X] Evaluation
 - [ ] PGN reader and "Game Review"
-- [ ] Minimax algorithm
-- [ ] Alpha-beta pruning 
-- [ ] Move ordering for optimization
-- [ ] Transposition tables for various chess openings
-- [ ] Zobrist Hashing
+- [X] Minimax algorithm
+- [X] Alpha-beta pruning 
+- [X] Move ordering for optimization
+- [ ] Transposition tables (Caching moves)
+- [ ] Zobrist Hashing (To detect repetition)

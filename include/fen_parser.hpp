@@ -25,6 +25,12 @@ public:
 
     int init();
     void load_fen_from_file(const char *path);
+    
+    void updateFEN();
+
+    const std::string getFEN() {
+        return m_FEN;
+    }
 
 protected:
     FenParser();

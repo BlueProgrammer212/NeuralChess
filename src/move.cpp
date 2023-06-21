@@ -40,15 +40,17 @@ void pawnPromotion(const int t_square) {
   const bool is_black = piece_color & Bitboard::Sides::BLACK;
 
   if ((rank == 0 && is_white) || (rank == Bitboard::BOARD_SIZE && is_black)) {
-    Globals::should_show_promotion_dialog = true;
+    //Globals::should_show_promotion_dialog = true;
+
+    //Auto queen implementation.
+    Globals::bitboard[t_square] =
+        (is_white * Bitboard::Pieces::Q) | (is_black * Bitboard::Pieces::q);
 
     const int pawn_color = (is_white * 0b10) | (!is_white * 0b01);
 
     //Modify the first and second LSB.
     Globals::promotion_squares |= pawn_color;
     Globals::promotion_squares &= ~((is_white * 0b01) | (!is_white * 0b10));
-
-    Globals::side ^= 0b11;
   }
 }
 
@@ -77,6 +79,14 @@ auto makeMove(const LegalMove& move) -> const ImaginaryMove {
   //Temporarily modify the bitboard.
   Globals::bitboard[move.x] = old_piece;
   Globals::bitboard[move.y] = Bitboard::Pieces::e;
+
+  const int rank = move.x >> 3;
+
+  if (Bitboard::isPawn(old_piece) && rank == (team & 0b01) * 7) {
+    //Auto queen implementation.
+    Globals::bitboard[move.x] =
+        ((team & 0b10) * Bitboard::Pieces::Q) | ((~team & 0b10) * Bitboard::Pieces::q);
+  }
 
   if (is_en_passant) {
     const int rank_increment = (Globals::side & Bitboard::Sides::WHITE ? 1 : -1);
@@ -419,7 +429,7 @@ void generateCastlingMove(int t_square, std::function<void(int, int)> moveFunc) 
   }
 
   const int king_color = Bitboard::getColor(Globals::bitboard[t_square]);
-  const int shift = (king_color & Bitboard::Sides::WHITE ? 0 : 2);
+  const int shift = (king_color & Bitboard::Sides::WHITE) * 2;
 
   int long_castle = Bitboard::Castle::LONG_CASTLE << shift;
   int short_castle = Bitboard::Castle::SHORT_CASTLE << shift;
@@ -583,14 +593,23 @@ void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> mo
   }
 }
 
-void searchForOccupiedSquares() {
+void searchForOccupiedSquares(int filter) {
   // Reset the occupancy squares data.
   Globals::opponent_occupancy.clear();
 
   for (int t_square = 0; t_square < Bitboard::Squares::h8 + 1; ++t_square) {
     const int piece_color = Bitboard::getColor(Globals::bitboard[t_square]);
 
-    if (Globals::bitboard[t_square] == Bitboard::Pieces::e || piece_color & Globals::side) {
+    if ((filter & PAWN_OCCUPIED_SQUARES_MAP && !Bitboard::isPawn(Globals::bitboard[t_square])) ||
+        (filter & KING_OCCUPIED_SQUARES_MAP && !Bitboard::isKing(Globals::bitboard[t_square]))) {
+      continue;
+    }
+
+    bool which_side =
+        (piece_color & Globals::side && filter & OPPONENT_OCCUPIED_SQUARES_MAP) ||
+        (!(piece_color & Globals::side) && filter & PLAYER_TO_MOVE_OCCUPIED_SQUARES_MAP);
+
+    if (Globals::bitboard[t_square] == Bitboard::Pieces::e || which_side) {
       continue;
     }
 
@@ -614,17 +633,17 @@ const int getOwnKing() {
 }
 
 const bool isInCheck() {
-  int king = getOwnKing();
+  const int king = getOwnKing();
+
+  //Reload the occupied squares array.
   MoveGenerator::searchForOccupiedSquares();
 
-  for (SDL_Point occupied_sq : Globals::opponent_occupancy) {
-    // If any squares matches with the king's LSF, then the king must in check.
-    if (occupied_sq.x == king) {
-      return true;
-    }
-  }
+  auto willCaptureKing = [king](const SDL_Point& occupied_sq) {
+    return occupied_sq.x == king;
+  };
 
-  return false;
+  return std::any_of(Globals::opponent_occupancy.begin(), Globals::opponent_occupancy.end(),
+                     willCaptureKing);
 }
 
 void filterPseudoLegalMoves(const int t_square, std::vector<LegalMove>& hint_square_array) {
@@ -656,9 +675,14 @@ void filterPseudoLegalMoves(const int t_square, std::vector<LegalMove>& hint_squ
 
     searchForOccupiedSquares();
   }
+
+  hint_square_array.erase(
+      std::remove_if(hint_square_array.begin(), hint_square_array.end(),
+                     [](const LegalMove& move) { return move.x & Bitboard::Squares::no_sq; }),
+      hint_square_array.end());
 }
 
-const std::vector<LegalMove>& generateLegalMoves() {
+std::vector<LegalMove>& generateLegalMoves() {
   Globals::legal_moves.clear();
   for (int i = 0; i < Bitboard::Squares::h8 + 1; ++i) {
     if (Globals::bitboard[i] == Bitboard::Pieces::e ||
@@ -671,6 +695,26 @@ const std::vector<LegalMove>& generateLegalMoves() {
   }
 
   return Globals::legal_moves;
+}
+
+const bool isInTerminalCondition() {
+  auto nand64 = [](const LegalMove& hint_square) {
+    return !(hint_square.x & Bitboard::Squares::no_sq);
+  };
+
+  const int legal_move_count =
+      std::count_if(Globals::legal_moves.begin(), Globals::legal_moves.end(), nand64);
+
+  return legal_move_count <= 0;
+}
+
+const bool isCheckmate() {
+  Globals::is_in_check = isInCheck();
+  return Globals::is_in_check && isInTerminalCondition();
+}
+
+const bool isStalemate() {
+  return !isInCheck() && isInTerminalCondition();
 }
 
 };  // namespace MoveGenerator

@@ -45,7 +45,13 @@ Game::~Game() {
 }
 
 void Game::playRandomly() {
-  if (move_delay >= 10) {
+  if (Globals::side & Bitboard::Sides::WHITE) {
+    return;
+  }
+
+  move_delay++;
+
+  if (move_delay >= 30) {
     MoveGenerator::generateLegalMoves();
 
     if (game_state & GameState::DRAW || game_state & GameState::CHECKMATE) {
@@ -74,96 +80,124 @@ void Game::playRandomly() {
   }
 }
 
-int Game::minimaxSearch(int depth, bool maximizing_player, int alpha, int beta) {
+int Game::minimaxSearch(int depth, int alpha, int beta) {
   if (depth == 0) {
-    return Evaluation::evaluateMaterial();
+    //If it's black to move, the evaluation must be negated.
+    const int perspective = Globals::side & Bitboard::Sides::WHITE ? 1 : -1;
+
+    return Evaluation::evaluateFactors() * perspective;
   }
 
-  MoveGenerator::generateLegalMoves();
+  const std::vector<LegalMove> legal_moves_copy = moveOrdering();
 
-  std::vector<LegalMove> legal_moves_copy;
+  int minEval = INT_MAX;
 
-  auto isNotEmpty = [](const LegalMove& move) {
-    return bitboard[move.y] != Bitboard::Pieces::e && move.y != Bitboard::Squares::no_sq;
-  };
+  for (const LegalMove& moves : legal_moves_copy) {
+    const auto& move_data = MoveGenerator::makeMove(moves);
 
-  std::copy_if(std::begin(Globals::legal_moves), std::end(Globals::legal_moves),
-               std::back_inserter(legal_moves_copy), isNotEmpty);
+    side ^= 0b11;
 
-  if (maximizing_player) {
-    int maxEval = INT_MIN;
+    int score = -minimaxSearch(depth - 1, -beta, -alpha);
 
-    for (const LegalMove& moves : legal_moves_copy) {
-      const auto& move_data = MoveGenerator::makeMove(moves);
-      side ^= 0b11;
+    side ^= 0b11;
 
-      int score = minimaxSearch(depth - 1, false, alpha, beta);
+    MoveGenerator::unmakeMove(moves, move_data);
 
-      side ^= 0b11;
-      MoveGenerator::unmakeMove(moves, move_data);
+    minEval = std::min(score, minEval);
 
-      maxEval = std::max(maxEval, score);
-      alpha = std::max(alpha, score);
+    alpha = std::max(alpha, minEval);
+    beta = std::min(beta, minEval);
 
-      if (beta <= alpha) {
-        break;  // Beta cutoff, no need to explore further
-      }
+    if (alpha >= beta) {
+      break;  // Alpha-beta pruning
     }
-
-    return maxEval;
-  } else {
-    int minEval = INT_MAX;
-
-    for (const LegalMove& moves : legal_moves_copy) {
-      const auto& move_data = MoveGenerator::makeMove(moves);
-      side ^= 0b11;
-
-      int score = minimaxSearch(depth - 1, true, alpha, beta);
-
-      side ^= 0b11;
-      MoveGenerator::unmakeMove(moves, move_data);
-
-      minEval = std::min(minEval, score);
-      beta = std::min(beta, score);
-
-      if (beta <= alpha) {
-        break;  // Alpha cutoff, no need to explore further
-      }
-    }
-
-    return minEval;
   }
+
+  return minEval;
+}
+
+const std::vector<LegalMove>& Game::moveOrdering() {
+  std::vector<LegalMove>& moves = MoveGenerator::generateLegalMoves();
+
+  for (LegalMove& move : moves) {
+    const int move_piece_type = Globals::bitboard[move.y];
+    const int target_piece_type = Globals::bitboard[move.x];
+
+    if (target_piece_type != Bitboard::Pieces::e) {
+      move.score = 10 * Evaluation::getPieceValue(target_piece_type) -
+                   Evaluation::getPieceValue(move_piece_type);
+    }
+
+    //It's usually a bad idea to put a valuable piece in a pawn attack.
+    MoveGenerator::searchForOccupiedSquares(MoveGenerator::PAWN_OCCUPIED_SQUARES_MAP);
+
+    auto attackedByPawn = [move_piece_type, &move](const SDL_Point& occupied_square) {
+      return occupied_square.x == move.x;
+    };
+
+    const bool will_pawn_capture = std::any_of(Globals::opponent_occupancy.begin(),
+                                               Globals::opponent_occupancy.end(), attackedByPawn);
+
+    if (will_pawn_capture) {
+      //Penalty for moving squares to attacked squares.
+      move.score -= Evaluation::PAWN_CAPTURE_PENALTY;
+    }
+
+    MoveGenerator::searchForOccupiedSquares();
+  }
+
+  std::sort(moves.begin(), moves.end(), [](const LegalMove& a, const LegalMove& b) {
+    return a.score > b.score;  // Sort in descending order
+  });
+
+  return moves;
 }
 
 void Game::playBestMove(int depth) {
-  LegalMove best_move;
+  if (Globals::side & Bitboard::Sides::WHITE) {
+    return;
+  }
+
+  move_delay++;
+
+  if (move_delay < 30 || MoveGenerator::isInTerminalCondition()) {
+    return;
+  }
+
+  const std::vector<LegalMove> legal_moves_copy = MoveGenerator::generateLegalMoves();
+
   int best_score = INT_MIN;
-
-  MoveGenerator::generateLegalMoves();
-
-  std::vector<LegalMove> legal_moves_copy;
-
-  auto isNotEmpty = [](const LegalMove& move) {
-    return bitboard[move.y] != Bitboard::Pieces::e && move.y != Bitboard::Squares::no_sq;
-  };
-
-  std::copy_if(std::begin(Globals::legal_moves), std::end(Globals::legal_moves),
-               std::back_inserter(legal_moves_copy), isNotEmpty);
+  LegalMove best_move = legal_moves_copy.back();
 
   for (const LegalMove& move : legal_moves_copy) {
     const auto& move_data = MoveGenerator::makeMove(move);
 
-    int score = minimaxSearch(depth - 1, true, INT_MIN, INT_MAX);
+    side ^= 0b11;
+
+    int score = -minimaxSearch(depth - 1, INT_MIN, INT_MAX);
 
     if (score > best_score) {
       best_score = score;
       best_move = move;
     }
 
+    if (MoveGenerator::isCheckmate()) {
+      best_score = score;
+      best_move = move;
+
+      MoveGenerator::unmakeMove(move, move_data);
+      side ^= 0b11;
+
+      break;
+    }
+
     MoveGenerator::unmakeMove(move, move_data);
+    side ^= 0b11;
   }
 
   m_interface->drop(best_move.x, best_move.y, SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
+
+  move_delay = 0;
 }
 
 void Game::init(const int width, const int height) {
@@ -230,7 +264,6 @@ void Game::init(const int width, const int height) {
   //Settings::init();
 
   MoveGenerator::renderMove(-1, -1);
-  Evaluation::evaluateMaterial();
 }
 
 void Game::update() {
@@ -238,9 +271,7 @@ void Game::update() {
   delta_time = time - last_time;
   last_time = time;
 
-  move_delay += delta_time;
-
-  //playRandomly();
+  playBestMove(36);
 }
 
 void Game::render() {
@@ -352,7 +383,7 @@ void Game::render() {
 
   //Render the evaluation bar.
   //TODO: Refactor this later.
-  SDL_Rect black_eval_rect = {600, 0, 25, black_eval * 10};
+  SDL_Rect black_eval_rect = {600, 0, 25, black_eval / 10};
   SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
   SDL_RenderFillRect(renderer, &black_eval_rect);
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -483,8 +514,6 @@ void Game::events() {
 
         //If there is a selected square, then drop it to the new square.
         m_interface->drop(new_square, selected_square, SHOULD_EXCHANGE_TURN);
-
-        Evaluation::evaluateMaterial();
 
         //If it's not checkmate yet or draw.
         // if (game_state & GameState::OPENING) {

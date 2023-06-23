@@ -1,34 +1,40 @@
 #include "evaluation.hpp"
 
 namespace Evaluation {
-int getPieceValue(int type) {
-  if (Bitboard::isPawn(type)) {
-    return PAWN;
-  } else if (Bitboard::isKnight(type)) {
-    return KNIGHT;
-  } else if (Bitboard::isBishop(type)) {
-    return BISHOP;
-  } else if (Bitboard::isRook(type)) {
-    return ROOK;
-  } else if (Bitboard::isQueen(type)) {
-    return QUEEN;
-  } else if (Bitboard::isKing(type)) {
-    return KING;
-  }
 
-  return 0;
+const int getPieceValue(const int type) {
+  // clang-format off
+  using namespace Bitboard;
+
+  return isPawn(type)   * PAWN   |
+         isKnight(type) * KNIGHT |
+         isBishop(type) * BISHOP |
+         isRook(type)   * ROOK   |
+         isQueen(type)  * QUEEN  |
+         isKing(type)   * KING;
+  // clang-format on
 }
 
-int evaluateFactors() {
-  if (MoveGenerator::isCheckmate()) {
-    return INT_MAX;
-  }
+const std::array<int, 64>& getPieceSquareTable(int type) {
+  return PIECE_SQUARE_TABLES[(type - 1) % 6];
+}
 
+int getSquareValue(const int side, const int square, const int type) {
+  return (Bitboard::getColor(type) & side) * getPieceSquareTable(type)[square];
+}
+
+const int evaluateFactors() {
   int material_white = 0;
   int material_black = 0;
 
-  int pawn_structure_white = 0;
-  int pawn_structure_black = 0;
+  int doubled_pawn_structure_white = 0;
+  int doubled_pawn_structure_black = 0;
+
+  int blocked_pawns_white = 0;
+  int blocked_pawns_black = 0;
+
+  int piece_square_table_white = 0;
+  int piece_square_table_black = 0;
 
   // const int king = MoveGenerator::getOwnKing();
 
@@ -49,12 +55,23 @@ int evaluateFactors() {
     material_white += (color & 0b10) * getPieceValue(type);
     material_black += (~color & 0b10) * getPieceValue(type);
 
-    //Prevent doubled pawn structure.
+    //Check if a pawn resides in a same file. (Doubled pawn structure)
     if (Bitboard::isPawn(Globals::bitboard[square]) &&
         Bitboard::isPawn(Globals::bitboard[(rank_increment << 3) + square])) {
-      pawn_structure_white -= (color & 0b10) * getPieceValue(type);
-      pawn_structure_black -= (~color & 0b10) * getPieceValue(type);
+      doubled_pawn_structure_white -= (color & 0b10) * 50;
+      doubled_pawn_structure_black -= (~color & 0b10) * 50;
     }
+
+    //Blocked pawns
+    if (Bitboard::isPawn(Globals::bitboard[square]) &&
+        ~(color & Bitboard::getColor(Globals::bitboard[(rank_increment << 3) + square]))) {
+      blocked_pawns_white -= (color & 0b10) * 50;
+      blocked_pawns_black -= (~color & 0b10) * 50;
+    }
+
+    //Evaluate piece square tables.
+    piece_square_table_black += getSquareValue(0b01, square, type);
+    piece_square_table_white += getSquareValue(0b10, square, type);
   }
 
   //Evaluate the score of how much control squares there are.
@@ -62,32 +79,126 @@ int evaluateFactors() {
       MoveGenerator::OccupiedSquareMapFlags::PLAYER_TO_MOVE_OCCUPIED_SQUARES_MAP);
 
   //Evaluate control squares.
-  const int spatialAdvantage = static_cast<int>(Globals::opponent_occupancy.size()) * 10;
+  const int spatialAdvantage = static_cast<int>(Globals::opponent_occupancy.size());
 
   MoveGenerator::searchForOccupiedSquares(
       MoveGenerator::OccupiedSquareMapFlags::OPPONENT_OCCUPIED_SQUARES_MAP);
 
-  const int spatialDisadvantage = static_cast<int>(Globals::opponent_occupancy.size()) * 10;
+  const int spatialDisadvantage = static_cast<int>(Globals::opponent_occupancy.size());
 
   Globals::side ^= 0b11;
 
   //Make sure every pieces are active and prevent trapped pieces if possible.
   MoveGenerator::generateLegalMoves();
 
-  const int mobilityDisadvantage = static_cast<int>(Globals::legal_moves.size()) * 10;
+  const int mobilityDisadvantage = static_cast<int>(Globals::legal_moves.size());
 
   Globals::side ^= 0b11;
 
   MoveGenerator::generateLegalMoves();
 
-  const int mobilityAdvantage = static_cast<int>(Globals::legal_moves.size()) * 10;
+  const int mobilityAdvantage = static_cast<int>(Globals::legal_moves.size());
 
   const int mobility_evaluation = mobilityAdvantage - mobilityDisadvantage;
   const int material_evaluation = material_white - material_black;
   const int spatial_evaluation = spatialAdvantage - spatialDisadvantage;
 
-  const int pawn_structure_eval = pawn_structure_white - pawn_structure_black;
+  const int pawn_structure_eval = (doubled_pawn_structure_white - doubled_pawn_structure_black) +
+                                  (blocked_pawns_white - blocked_pawns_black);
 
-  return material_evaluation + mobility_evaluation + spatial_evaluation + pawn_structure_eval;
+  const int central_control_eval = (piece_square_table_white - piece_square_table_white);
+
+  return material_evaluation + (10 * mobility_evaluation) + (10 * spatial_evaluation) +
+         pawn_structure_eval + central_control_eval;
 }
+
+// clang-format off
+
+std::array<std::array<int, 64>, 7> PIECE_SQUARE_TABLES = { {
+   //King Middlegame
+   {
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -30,-40,-40,-50,-50,-40,-40,-30,
+    -20,-30,-30,-40,-40,-30,-30,-20,
+    -10,-20,-20,-20,-20,-20,-20,-10,
+     20, 20,  0,  0,  0,  0, 20, 20,
+     20, 30, 10,  0,  0, 10, 30, 20
+  },
+
+  //Queen
+  {
+    -20,-10,-10, -5, -5,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5,  5,  5,  5,  0,-10,
+    -5,   0,  5,  5,  5,  5,  0, -5,
+     0,   0,  5,  5,  5,  5,  0, -5,
+    -10,  5,  5,  5,  5,  5,  0,-10,
+    -10,  0,  5,  0,  0,  0,  0,-10,
+    -20,-10,-10, -5, -5,-10,-10,-20
+  },
+  
+  //Bishop
+  { 
+    -20,-10,-10,-10,-10,-10,-10,-20,
+    -10,  0,  0,  0,  0,  0,  0,-10,
+    -10,  0,  5, 10, 10,  5,  0,-10,
+    -10,  5,  5, 10, 10,  5,  5,-10,
+    -10,  0, 10, 10, 10, 10,  0,-10,
+    -10, 10, 10, 10, 10, 10, 10,-10,
+    -10,  5,  0,  0,  0,  0,  5,-10,
+    -20,-10,-10,-10,-10,-10,-10,-20,
+  },
+
+  //Knight
+  {
+    -50,-40,-30,-30,-30,-30,-40,-50,
+    -40,-20,  0,  0,  0,  0,-20,-40,
+    -30,  0, 10, 15, 15, 10,  0,-30,
+    -30,  5, 15, 20, 20, 15,  5,-30,
+    -30,  0, 15, 20, 20, 15,  0,-30,
+    -30,  5, 10, 15, 15, 10,  5,-30,
+    -40,-20,  0,  5,  5,  0,-20,-40,
+    -50,-40,-30,-30,-30,-30,-40,-50,
+  },
+
+  //Rook
+  {
+    0,  0,  0,  0,  0,  0,  0,  0,
+    5, 10, 10, 10, 10, 10, 10,  5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    -5,  0,  0,  0,  0,  0,  0, -5,
+    0,  0,  0,  5,  5,  0,  0,  0
+  },
+
+  //Pawn
+  {
+    0,  0,  0,  0,  0,  0,  0,  0,
+    50, 50, 50, 50, 50, 50, 50, 50,
+    10, 10, 20, 30, 30, 20, 10, 10,
+    5,  5, 10, 25, 25, 10,  5,  5,
+    0,  0,  0, 20, 20,  0,  0,  0,
+    5, -5,-10,  0,  0,-10, -5,  5,
+    5, 10, 10,-20,-20, 10, 10,  5,
+    0,  0,  0,  0,  0,  0,  0,  0
+  },
+
+  //King Endgame
+  {
+    -50,-40,-30,-20,-20,-30,-40,-50,
+    -30,-20,-10,  0,  0,-10,-20,-30,
+    -30,-10, 20, 30, 30, 20,-10,-30,
+    -30,-10, 30, 40, 40, 30,-10,-30,
+    -30,-10, 30, 40, 40, 30,-10,-30,
+    -30,-10, 20, 30, 30, 20,-10,-30,
+    -30,-30,  0,  0,  0,  0,-30,-30,
+    -50,-30,-30,-30,-30,-30,-30,-50
+ }
+} };
+
+// clang-format on
 }  // namespace Evaluation

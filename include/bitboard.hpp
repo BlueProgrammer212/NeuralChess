@@ -120,7 +120,7 @@ namespace Bitboard
 
     inline int getColor(int type)
     {
-        bool is_black = type > 6;
+        const bool is_black = type > 6;
         return (is_black * 0b01) | (!is_black * 0b10);
     }
 

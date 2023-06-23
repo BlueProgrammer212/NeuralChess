@@ -7,13 +7,13 @@
 #include "bitboard.hpp"
 #include "move.hpp"
 
-enum MaterialValue
+enum MaterialValue : int
 {
     PAWN = 100,
 
     // Minor Pieces
     KNIGHT = 300,
-    BISHOP = 330,
+    BISHOP = 320,
 
     // Major Pieces
     ROOK = 500,
@@ -25,8 +25,15 @@ enum MaterialValue
 namespace Evaluation
 {
     constexpr int PAWN_CAPTURE_PENALTY = 350;
+    constexpr int LOSING_CASTLING_RIGHTS_PENALTY = 350;
 
-    int evaluateFactors();
+    const int evaluateFactors();
 
-    int getPieceValue(int type);
+    const int getPieceValue(const int type);
+    const std::array<int, 64> &getPieceSquareTable(const int type);
+
+    int getSquareValue(const int side, int square, const int type);
+
+    extern std::array<std::array<int, 64>, 7> PIECE_SQUARE_TABLES;
+    extern int endgame_weight;
 }

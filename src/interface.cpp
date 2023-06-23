@@ -150,7 +150,8 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
 
   //Checkmate detection.
   game_state |= GameState::CHECKMATE * MoveGenerator::isCheckmate() |
-                GameState::DRAW * MoveGenerator::isStalemate();
+                GameState::DRAW * MoveGenerator::isStalemate() | 
+                GameState::DRAW * MoveGenerator::isInsufficientMaterial();
 
   //Log the algebraic notation of the move.
   if (!(flags & MoveFlags::IS_CASTLING) && !(flags & MoveFlags::WILL_UNDO_MOVE)) {
@@ -167,6 +168,8 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
     std::cout << "\n\nCheckmate! " << winner << " is victorious.\n";
   } else if (halfmove_clock >= 50) {
     std::cout << "\n\nDraw by 50-move rule.\n";
+  } else if (MoveGenerator::isInsufficientMaterial()) {
+    std::cout << "\n\nDraw by Insufficient Material\n";
   } else if (game_state & GameState::DRAW) {
     std::cout << "\n\nDraw by Stalemate\n";
   }

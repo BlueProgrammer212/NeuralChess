@@ -1,6 +1,5 @@
 {
     "tasks": [
-        
         {
             "type": "shell",
             "label": "C/C++: g++.exe build active file",
@@ -8,6 +7,8 @@
             "args": [
                 //Manually add the CPP files.
                 "${workspaceFolder}\\src\\*.cpp",
+                "-std=c++17",
+                "-pthread",
                 //Output executable file.
                 "-o",
                 "${workspaceFolder}\\bin\\debug\\NeuralChess.exe",
@@ -15,7 +16,6 @@
                 "-g",
                 "-Wall",
                 "-m64",
-                "-std=c++17",
                 //Include SDL directories
                 "-I",
                 "${workspaceFolder}\\include",

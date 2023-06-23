@@ -8,6 +8,7 @@
 #include <array>
 #include <string>
 #include <utility>
+#include <numeric>
 
 #include "globals.hpp"
 
@@ -25,6 +26,7 @@ struct ImaginaryMove
     int en_passant_capture_piece_type = Bitboard::Pieces::e;
 
     int team = Bitboard::Sides::WHITE;
+    int old_half_move_clock = 0;
 };
 
 namespace MoveGenerator
@@ -50,17 +52,17 @@ namespace MoveGenerator
         PLAYER_TO_MOVE_OCCUPIED_SQUARES_MAP = 1 << 4
     };
 
-    // Add the LSF in the legal move array
+    // Add the square in the legal move array
     void
     addMove(const int t_square, const int old_square) noexcept;
 
-    // Set the LSF as an "occupied square"
+    // Set the square as an "occupied square"
     void addOccupancySquare(const int t_square, const int old_square) noexcept;
 
     // Only render the possible moves of the selected piece.
     void renderMove(const int t_square, const int old_square) noexcept;
 
-    // Get the distance between the delta square and the target LSF.
+    // Get the distance between the delta square and the target square.
     int getMaxDeltaSquares(const int delta_square, const int square_prime);
 
     // Make an imaginary move and update the bitboard temporarily.
@@ -69,7 +71,7 @@ namespace MoveGenerator
     // Unmake the imaginary move and restore the old bitboard data.
     void unmakeMove(const LegalMove &move, const ImaginaryMove &data);
 
-    // Translate LSFs into the algebraic notation.
+    // Translate squares into the algebraic notation.
     [[nodiscard]] const std::string toAlgebraicNotation(int type, int old_square, int square,
                                                         bool is_capture, bool is_a_castling_move, int dx);
 
@@ -79,7 +81,7 @@ namespace MoveGenerator
     // Check if the square does not contain any pieces.
     bool notEmpty(const int t_square);
 
-    // Check if we can capture the LSF.
+    // Check if we can capture the square.
     bool canCapture(const int t_square, const bool for_occupied_square = false);
 
     // En Passant implementation.
@@ -108,7 +110,7 @@ namespace MoveGenerator
     // TODO: Consider not using a switch-case block.
     // TODO: Update pawn promotions.
     void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> moveFunc,
-                                bool for_occupied_squares = false, bool for_legal_moves = false);
+                                bool for_occupied_squares = false, bool for_legal_moves = false, bool only_captures = false);
 
     void searchForOccupiedSquares(int filter = OPPONENT_OCCUPIED_SQUARES_MAP);
 
@@ -117,11 +119,14 @@ namespace MoveGenerator
 
     const bool isInCheck();
 
-    void filterPseudoLegalMoves(const int t_square, std::vector<LegalMove> &hint_square_array);
+    void filterPseudoLegalMoves(std::vector<LegalMove> &hint_square_array);
 
-    std::vector<LegalMove> &generateLegalMoves();
+    std::vector<LegalMove> &generateLegalMoves(const bool only_captures = false);
 
+    // Check for possible terminations.
     const bool isInTerminalCondition();
     const bool isCheckmate();
     const bool isStalemate();
+
+    const bool isInsufficientMaterial();
 }; // namespace MoveGenerator

@@ -3,8 +3,6 @@
 #include <SDL2/SDL.h>
 #include <iostream>
 #include <memory>
-#include <thread>
-#include <future>
 
 #include "globals.hpp"
 #include "texture.hpp"
@@ -27,7 +25,7 @@ public:
   void events();
 
   inline bool isRunning() const { return m_running; }
-  int minimaxSearch(int depth, int alpha, int beta);
+  int minimaxSearch(int depth, int alpha, int beta, bool is_maximizing);
   const std::vector<LegalMove> &moveOrdering();
 
   void playRandomly();
@@ -36,6 +34,8 @@ public:
   void resetBoard();
 
   void destroy() { delete this; }
+
+  bool is_calculating = false;
 
 private:
   int time;

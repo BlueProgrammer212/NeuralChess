@@ -80,40 +80,83 @@ void Game::playRandomly() {
   }
 }
 
-int Game::minimaxSearch(int depth, int alpha, int beta) {
-  if (depth == 0) {
-    //If it's black to move, the evaluation must be negated.
-    const int perspective = Globals::side & Bitboard::Sides::WHITE ? 1 : -1;
+int Game::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
+  const int perspective = is_maximizing ? 1 : -1;
 
+  if (depth == 0) {
+    // Evaluation for leaf nodes
     return Evaluation::evaluateFactors() * perspective;
   }
 
   const std::vector<LegalMove> legal_moves_copy = moveOrdering();
 
-  int minEval = INT_MAX;
-
-  for (const LegalMove& moves : legal_moves_copy) {
-    const auto& move_data = MoveGenerator::makeMove(moves);
-
-    side ^= 0b11;
-
-    int score = -minimaxSearch(depth - 1, -beta, -alpha);
-
-    side ^= 0b11;
-
-    MoveGenerator::unmakeMove(moves, move_data);
-
-    minEval = std::min(score, minEval);
-
-    alpha = std::max(alpha, minEval);
-    beta = std::min(beta, minEval);
-
-    if (alpha >= beta) {
-      break;  // Alpha-beta pruning
+  if (MoveGenerator::isCheckmate()) {
+    if (Globals::side == Bitboard::Sides::WHITE) {
+      return INT_MIN + depth;  // Black has won
+    } else {
+      return INT_MAX - depth;  // White has won
     }
   }
 
-  return minEval;
+  if (is_maximizing) {
+    int maxEval = INT_MIN;
+
+    for (const LegalMove& move : legal_moves_copy) {
+      const auto& move_data = MoveGenerator::makeMove(move);
+
+      side ^= 0b11;
+
+      int score = 0;
+
+      if (MoveGenerator::isCheckmate()) {
+        score = INT_MAX;
+      } else {
+        score = minimaxSearch(depth - 1, alpha, beta, false);
+      }
+
+      side ^= 0b11;
+
+      MoveGenerator::unmakeMove(move, move_data);
+
+      maxEval = std::max(score, maxEval);
+      alpha = std::max(alpha, maxEval);
+
+      if (alpha >= beta) {
+        break;  // Alpha-beta pruning
+      }
+    }
+
+    return maxEval;
+  } else {
+    int minEval = INT_MAX;
+
+    for (const LegalMove& move : legal_moves_copy) {
+      const auto& move_data = MoveGenerator::makeMove(move);
+
+      side ^= 0b11;
+
+      int score = 0;
+
+      if (MoveGenerator::isCheckmate()) {
+        score = INT_MIN;
+      } else {
+        score = minimaxSearch(depth - 1, alpha, beta, true);
+      }
+
+      side ^= 0b11;
+
+      MoveGenerator::unmakeMove(move, move_data);
+
+      minEval = std::min(score, minEval);
+      beta = std::min(beta, minEval);
+
+      if (alpha >= beta) {
+        break;  // Alpha-beta pruning
+      }
+    }
+
+    return minEval;
+  }
 }
 
 const std::vector<LegalMove>& Game::moveOrdering() {
@@ -126,6 +169,12 @@ const std::vector<LegalMove>& Game::moveOrdering() {
     if (target_piece_type != Bitboard::Pieces::e) {
       move.score = 10 * Evaluation::getPieceValue(target_piece_type) -
                    Evaluation::getPieceValue(move_piece_type);
+    }
+
+    //Look for pawn promotion.
+    if (Bitboard::isPawn(move_piece_type) &&
+        move.x >> 3 == (7 * (Bitboard::getColor(move_piece_type) & 0b01))) {
+      move.score += 900;  //Due to auto-queen.
     }
 
     //It's usually a bad idea to put a valuable piece in a pawn attack.
@@ -142,6 +191,9 @@ const std::vector<LegalMove>& Game::moveOrdering() {
       //Penalty for moving squares to attacked squares.
       move.score -= Evaluation::PAWN_CAPTURE_PENALTY;
     }
+
+    //Evaluate piece square tables.
+    move.score += 10 * Evaluation::getSquareValue(Globals::side, move.x, move_piece_type);
 
     MoveGenerator::searchForOccupiedSquares();
   }
@@ -160,9 +212,11 @@ void Game::playBestMove(int depth) {
 
   move_delay++;
 
-  if (move_delay < 30 || MoveGenerator::isInTerminalCondition()) {
+  if (move_delay < 5 || MoveGenerator::isInTerminalCondition()) {
     return;
   }
+
+  is_calculating = true;
 
   const std::vector<LegalMove> legal_moves_copy = MoveGenerator::generateLegalMoves();
 
@@ -174,21 +228,11 @@ void Game::playBestMove(int depth) {
 
     side ^= 0b11;
 
-    int score = -minimaxSearch(depth - 1, INT_MIN, INT_MAX);
+    int score = -minimaxSearch(depth - 1, INT_MIN, INT_MAX, true);
 
     if (score > best_score) {
       best_score = score;
       best_move = move;
-    }
-
-    if (MoveGenerator::isCheckmate()) {
-      best_score = score;
-      best_move = move;
-
-      MoveGenerator::unmakeMove(move, move_data);
-      side ^= 0b11;
-
-      break;
     }
 
     MoveGenerator::unmakeMove(move, move_data);
@@ -198,6 +242,8 @@ void Game::playBestMove(int depth) {
   m_interface->drop(best_move.x, best_move.y, SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
 
   move_delay = 0;
+
+  is_calculating = false;
 }
 
 void Game::init(const int width, const int height) {
@@ -270,8 +316,6 @@ void Game::update() {
   time += 1;
   delta_time = time - last_time;
   last_time = time;
-
-  playBestMove(36);
 }
 
 void Game::render() {
@@ -507,7 +551,7 @@ void Game::events() {
           selected_square = (Bitboard::SHOULD_FLIP ? new_square ^ 0x38 : new_square);
           //is_mouse_down = true;
 
-          MoveGenerator::filterPseudoLegalMoves(new_square, Globals::move_hints);
+          MoveGenerator::filterPseudoLegalMoves(Globals::move_hints);
 
           break;
         }

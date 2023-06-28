@@ -44,6 +44,8 @@ namespace MoveGenerator
     constexpr int KNIGHT_OFFSET_START = 8;
     constexpr int KNIGHT_OFFSET_END = 16;
 
+    constexpr int HALFMOVE_CLOCK_THRESHOLD = 50;
+
     enum OccupiedSquareMapFlags
     {
         PAWN_OCCUPIED_SQUARES_MAP = 1 << 1,
@@ -107,7 +109,6 @@ namespace MoveGenerator
     // Render pseudo-legal move hints.
     // TODO: Refactor the pawn moves.
     // TODO: Replace the boolean arguments with an unsigned int flag.
-    // TODO: Consider not using a switch-case block.
     // TODO: Update pawn promotions.
     void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> moveFunc,
                                 bool for_occupied_squares = false, bool for_legal_moves = false, bool only_captures = false);
@@ -124,9 +125,13 @@ namespace MoveGenerator
     std::vector<LegalMove> &generateLegalMoves(const bool only_captures = false);
 
     // Check for possible terminations.
+    inline const bool noMoreLegalMove();
+
     const bool isInTerminalCondition();
     const bool isCheckmate();
-    const bool isStalemate();
 
+    const bool isStalemate();
     const bool isInsufficientMaterial();
+    const bool isThreefoldRepetition();
+    const bool isFiftyMoveRule();
 }; // namespace MoveGenerator

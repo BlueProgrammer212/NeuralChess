@@ -15,36 +15,46 @@ const int getPieceValue(const int type) {
   // clang-format on
 }
 
-const std::array<int, 64>& getPieceSquareTable(int type) {
+const std::array<int, Bitboard::NUM_OF_SQUARES>& getPieceSquareTable(int type) {
+  //Get the bonus of the square.
   return PIECE_SQUARE_TABLES[(type - 1) % 6];
 }
 
-int getSquareValue(const int side, const int square, const int type) {
-  return (Bitboard::getColor(type) & side) * getPieceSquareTable(type)[square];
+int getSquareValue(const int side, int square, const int type) {
+  const int color = Bitboard::getColor(type);
+
+  if (color & Bitboard::Sides::WHITE) {
+    square = Bitboard::NUM_OF_SQUARES - square;
+  }
+
+  int square_bonus = (color & side) * getPieceSquareTable(type)[square];
+
+  return square_bonus;
 }
 
 const int evaluateFactors() {
-  int material_white = 0;
-  int material_black = 0;
+  // clang-format off
+  
+  auto [
+  
+    //Material Evaluation
+    material_white, material_black, 
 
-  int doubled_pawn_structure_white = 0;
-  int doubled_pawn_structure_black = 0;
+    //Pawn Structure Evaluation
+    doubled_pawn_structure_white, doubled_pawn_structure_black,
+    blocked_pawns_white, blocked_pawns_black, 
+  
+    //Square Control Evaluation
+    piece_square_table_white, piece_square_table_black
+  
+  ] = Factors();
 
-  int blocked_pawns_white = 0;
-  int blocked_pawns_black = 0;
+  // clang-format on
 
-  int piece_square_table_white = 0;
-  int piece_square_table_black = 0;
-
-  // const int king = MoveGenerator::getOwnKing();
-
-  // const int friendlyPawn = ((Globals::side & 0b01) * Bitboard::Pieces::p |
-  //                           ((~Globals::side & 0b01) * Bitboard::Pieces::P));
-
-  const int rank_increment = ((Globals::side & 0b01) * 1) | ((~Globals::side & 0b01) * -1);
+  const int rank_increment = Globals::side & Bitboard::Sides::WHITE ? -1 : 1;
 
   //Material evaluation.
-  for (int square = 0; square < 64; ++square) {
+  for (int square = 0; square < Bitboard::NUM_OF_SQUARES; ++square) {
     const int type = Globals::bitboard[square];
     const int color = Bitboard::getColor(type);
 
@@ -52,8 +62,10 @@ const int evaluateFactors() {
       continue;
     }
 
-    material_white += (color & 0b10) * getPieceValue(type);
-    material_black += (~color & 0b10) * getPieceValue(type);
+    if (!Bitboard::isKing(type)) {
+      material_white += (color & 0b10) * getPieceValue(type);
+      material_black += (~color & 0b10) * getPieceValue(type);
+    }
 
     //Check if a pawn resides in a same file. (Doubled pawn structure)
     if (Bitboard::isPawn(Globals::bitboard[square]) &&
@@ -99,6 +111,7 @@ const int evaluateFactors() {
 
   const int mobilityAdvantage = static_cast<int>(Globals::legal_moves.size());
 
+  //Evaluate mobility, material, and spatial advantage.
   const int mobility_evaluation = mobilityAdvantage - mobilityDisadvantage;
   const int material_evaluation = material_white - material_black;
   const int spatial_evaluation = spatialAdvantage - spatialDisadvantage;
@@ -114,7 +127,7 @@ const int evaluateFactors() {
 
 // clang-format off
 
-std::array<std::array<int, 64>, 7> PIECE_SQUARE_TABLES = { {
+std::array<std::array<int, Bitboard::NUM_OF_SQUARES>, 7> PIECE_SQUARE_TABLES = { {
    //King Middlegame
    {
     -30,-40,-40,-50,-50,-40,-40,-30,

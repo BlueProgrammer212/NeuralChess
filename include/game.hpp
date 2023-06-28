@@ -1,6 +1,8 @@
 #pragma once
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_syswm.h>
+#include <windows.h>
 #include <iostream>
 #include <memory>
 
@@ -12,8 +14,9 @@
 #include "gui/settings.hpp"
 #include "evaluation.hpp"
 #include "fen_parser.hpp"
+#include "minimax_search.hpp"
 
-class Game
+class Game : public Search
 {
 public:
   Game();
@@ -22,14 +25,11 @@ public:
   void init(const int width, const int height);
   void update();
   void render();
-  void events();
+  void events(bool is_ai_computing);
 
   inline bool isRunning() const { return m_running; }
-  int minimaxSearch(int depth, int alpha, int beta, bool is_maximizing);
-  const std::vector<LegalMove> &moveOrdering();
 
   void playRandomly();
-  void playBestMove(int depth);
 
   void resetBoard();
 
@@ -44,7 +44,6 @@ private:
 
   bool m_running;
 
-  std::unique_ptr<Interface> m_interface{};
   FenParser &m_fen_parser;
   HANDLE m_console;
 

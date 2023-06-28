@@ -23,4 +23,4 @@ If you're interested, you can visit this website: https://www.chessprogramming.o
 - [X] Alpha-beta pruning 
 - [X] Move ordering for optimization
 - [ ] Transposition tables (Caching moves)
-- [ ] Zobrist Hashing (To detect repetition)
+- [X] Zobrist Hashing (To detect repetition)

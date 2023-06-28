@@ -1,4 +1,6 @@
 #include "globals.hpp"
+#include "zobrist_hashing.hpp"
+#include "interface.hpp"
 
 using namespace Bitboard;
 
@@ -54,6 +56,8 @@ std::vector<LegalMove> move_hints = {};
 
 std::vector<SDL_Rect> quad_vector = {};
 
+std::vector<std::uint64_t> position_history = {};
+
 int side = 0;
 
 //x -> King side castling square.
@@ -104,6 +108,8 @@ int current_move = 0;
 unsigned int promotion_squares = 0;
 
 std::shared_ptr<AudioManager> audio_manager = std::make_shared<AudioManager>();
+std::shared_ptr<ZobristHashing> zobrist_hashing = std::make_shared<ZobristHashing>();
+std::shared_ptr<Interface> interface_handler = std::make_shared<Interface>();
 
 SDL_Point mouse_coord = {0, 0};
 }  // namespace Globals

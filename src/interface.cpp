@@ -34,7 +34,6 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
     return;
   }
 
-  //Exchange turns.
   bool exchange_turn = flags & MoveFlags::SHOULD_EXCHANGE_TURN;
   side ^= ((exchange_turn & 0b1) << 1) | (exchange_turn & 0b1);
 
@@ -44,7 +43,7 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
   if (!(flags & WILL_UNDO_MOVE)) {
     auto last_move = SDL_Point{old_square, square};
 
-    //Record the previous move for the "undo" feature.
+    // Record the previous move for the "undo" feature.
     // clang-format off
       const auto move = Ply {
           last_move,
@@ -116,6 +115,10 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
     bitboard[(square_increment << 3) + square] = Bitboard::Pieces::e;
   }
 
+  // Generate a zobrist hash and push it to the position history for threefold repetition detection.
+  const std::uint64_t zobrist_hash = Globals::zobrist_hashing->hashPosition();
+  Globals::position_history.push_back(zobrist_hash);
+
   //Start the piece animation.
   elapsed_time = static_cast<double>(SDL_GetTicks());
   linear_interpolant = Bitboard::squareToCoord(old_square);
@@ -143,17 +146,14 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
     audio_manager->PlayWAV("../../res/move.wav");
   }
 
-  //50-move rule implementation.
-  if (halfmove_clock >= 50) {
-    game_state = GameState::DRAW;
-  }
-
-  //Checkmate detection.
+  // Check for possible game terminations.
   game_state |= GameState::CHECKMATE * MoveGenerator::isCheckmate() |
-                GameState::DRAW * MoveGenerator::isStalemate() | 
-                GameState::DRAW * MoveGenerator::isInsufficientMaterial();
+                GameState::DRAW * MoveGenerator::isStalemate() |
+                GameState::DRAW * MoveGenerator::isInsufficientMaterial() |
+                GameState::DRAW * MoveGenerator::isThreefoldRepetition() |
+                GameState::DRAW * MoveGenerator::isFiftyMoveRule();
 
-  //Log the algebraic notation of the move.
+  // Log the algebraic notation of the move.
   if (!(flags & MoveFlags::IS_CASTLING) && !(flags & MoveFlags::WILL_UNDO_MOVE)) {
     // clang-format off
     const int delta_x = square - old_square;
@@ -166,16 +166,18 @@ void Interface::drop(int square, int old_square, const unsigned int flags) {
   if (game_state & GameState::CHECKMATE) {
     const char* winner = (Globals::side & Bitboard::Sides::BLACK ? "White" : "Black");
     std::cout << "\n\nCheckmate! " << winner << " is victorious.\n";
-  } else if (halfmove_clock >= 50) {
+  } else if (halfmove_clock >= MoveGenerator::HALFMOVE_CLOCK_THRESHOLD) {
     std::cout << "\n\nDraw by 50-move rule.\n";
   } else if (MoveGenerator::isInsufficientMaterial()) {
-    std::cout << "\n\nDraw by Insufficient Material\n";
+    std::cout << "\n\nDraw by Insufficient Material.\n";
+  } else if (MoveGenerator::isThreefoldRepetition()) {
+    std::cout << "\n\nDraw by Threefold Repetition.\n";
   } else if (game_state & GameState::DRAW) {
-    std::cout << "\n\nDraw by Stalemate\n";
+    std::cout << "\n\nDraw by Stalemate.\n";
   }
 
   move_hints.clear();
-  Globals::selected_square = Bitboard::no_sq;
+  Globals::selected_square = Bitboard::Squares::no_sq;
 }
 
 void Interface::undo() {

@@ -20,6 +20,8 @@
                 "-I",
                 "${workspaceFolder}\\include",
                 "-I",
+                "${workspaceFolder}\\include\\gcc_thread",
+                "-I",
                 "${workspaceFolder}\\dependencies\\SDL2-2.26.4\\x86_64-w64-mingw32\\include",
                 "-I",
                 "${workspaceFolder}\\dependencies\\SDL2_image-2.6.3\\x86_64-w64-mingw32\\include",
@@ -37,7 +39,7 @@
                 "-lSDL2main",
                 "-lSDL2",
                 "-lSDL2_image",
-                "-lSDL2_mixer"
+                "-lSDL2_mixer",
                 //"-lcurl" (Download lib curl first)
             ],
             "options": {

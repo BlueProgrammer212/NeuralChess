@@ -3,6 +3,7 @@
 #include <SDL2/SDL.h>
 #include "bitboard.hpp"
 #include "audio_manager.hpp"
+#include "zobrist_hashing.hpp"
 #include <memory>
 #include <tuple>
 
@@ -56,6 +57,9 @@ struct PerftData
     int num_of_promotions = 0;
 };
 
+class ZobristHashing;
+class Interface;
+
 namespace Globals
 {
     extern SDL_Window *window;
@@ -102,6 +106,8 @@ namespace Globals
     extern std::vector<int> max_squares;
     extern std::bitset<64U> move_bitset;
 
+    extern std::vector<std::uint64_t> position_history;
+
     extern std::vector<Ply> ply_array;
     extern std::vector<std::tuple<int, int, int>> move_squares;
 
@@ -124,6 +130,8 @@ namespace Globals
     extern int current_move;
 
     extern std::shared_ptr<AudioManager> audio_manager;
+    extern std::shared_ptr<ZobristHashing> zobrist_hashing;
+    extern std::shared_ptr<Interface> interface_handler;
 
     // void createWindow(const char *title, int width, int height);
 

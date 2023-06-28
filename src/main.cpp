@@ -15,7 +15,7 @@ void aiThreadFunction(Game* game_ptr) {
     // Set the flag to indicate that the AI thread is computing
     is_ai_computing = true;
 
-    game_ptr->playBestMove(3);
+    game_ptr->playBestMove(3, Bitboard::Sides::WHITE);
 
     // Reset the flag once the AI computation is done
     is_ai_computing = false;
@@ -25,7 +25,16 @@ void aiThreadFunction(Game* game_ptr) {
 }
 
 int main(int argc, char* argv[]) {
-  game_ptr->init(600, 600);
+  bool show_evaluation_bar = false;
+
+  for (int i = 1; i < argc; ++i) {
+    if (std::string(argv[i]) == "--show_eval") {
+      show_evaluation_bar = true;
+      break;
+    }
+  }
+
+  game_ptr->init(600 + (show_evaluation_bar * 25), 600);
 
   constexpr int FPS = 60;
   constexpr int FRAME_DELAY = FPS / 1000;
@@ -46,7 +55,7 @@ int main(int argc, char* argv[]) {
       game_ptr->render();
     }
 
-    game_ptr->events();
+    game_ptr->events(is_ai_computing);
 
     frame_time = SDL_GetTicks() - frame_start;
 

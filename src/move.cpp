@@ -127,6 +127,9 @@ auto makeMove(const LegalMove& move) -> const ImaginaryMove {
   Globals::move_bitset[move.x] = true;
   Globals::move_bitset[move.y] = false;
 
+  const std::uint64_t hash = Globals::zobrist_hashing->hashPosition();
+  Globals::position_history.push_back(hash);
+
   //Use these values to unmake the moves in the bitboard.
   const auto imaginary_move_data = ImaginaryMove{
       old_piece,   captured_piece,    initial_move_bit,          initial_move_bit_new_square,
@@ -166,6 +169,9 @@ void unmakeMove(const LegalMove& move, const ImaginaryMove& data) {
 
   //Reset the halfmove clock
   Globals::halfmove_clock = data.old_half_move_clock;
+
+  //Restore the old zobrist hash array.
+  Globals::position_history.pop_back();
 }
 
 //This is useful to translate the square index into algebraic notation.
@@ -324,9 +330,11 @@ void generatePawnCaptures(int t_square, const std::function<void(int, int)> move
 
   for (int i = direction_offset_start; i < direction_offset_end; ++i) {
     const int dt_square = t_square + OFFSETS[i];
+
+    // Get the manhattan distance of the pawn to the target square.
     const int max_delta_squares = getMaxDeltaSquares(dt_square, t_square);
 
-    //Check for friendly pieces.
+    // Check for friendly pieces.
     const bool can_capture = canCapture(dt_square, for_occupied_squares) || for_occupied_squares;
 
     if (can_capture && max_delta_squares == 1) {
@@ -403,6 +411,9 @@ void isFlankEmpty(int flank, int t_square, std::function<void(int, int)> moveFun
   const int target_rook_square = ((flank & 0b01) * 3) | ((~flank & 0b01) * -4);
   const int max_dx = std::abs(target_rook_square);
 
+  const int king_color = Bitboard::getColor(Globals::bitboard[t_square]);
+  const int shift = (king_color & Bitboard::Sides::WHITE) * 2;
+
   const int target_rook = Globals::bitboard[t_square + target_rook_square];
 
   for (int dx = 1; dx < max_dx; ++dx) {
@@ -430,9 +441,13 @@ void isFlankEmpty(int flank, int t_square, std::function<void(int, int)> moveFun
     if (dx == max_dx - 1 && dx == 2) {
       Globals::castling_square.x = t_square + 2;
       moveFunc(t_square + 2, t_square);
+
+      Globals::castling |= Bitboard::Castle::SHORT_CASTLE << shift;
     } else if (dx == max_dx - 1 && dx == 3) {
       Globals::castling_square.y = t_square - 2;
       moveFunc(t_square - 2, t_square);
+
+      Globals::castling |= Bitboard::Castle::LONG_CASTLE << shift;
     }
   }
 }
@@ -462,6 +477,8 @@ void generateCastlingMove(int t_square, std::function<void(int, int)> moveFunc) 
   }
 
   // Check flanks for both castling sides.
+  Globals::castling = 0;
+
   for (int flank = 0b01; flank < 0b100; flank <<= 1) {
     isFlankEmpty(flank, t_square, moveFunc);
   }
@@ -472,7 +489,8 @@ void generateKnightMoves(int t_square, std::function<void(int, int)> moveFunc,
   for (int i = KNIGHT_OFFSET_START; i < KNIGHT_OFFSET_END; ++i) {
     const int dt_square = t_square + OFFSETS[i];
 
-    // The change or the delta position must be restricted to only 2 squares.
+    // The manhattan distance of the target square to the current position
+    // must be restricted to only 2 squares.
     const int max_delta_squares = getMaxDeltaSquares(dt_square, t_square);
 
     // Check if the square will be "out of bounds" if we add the delta square.
@@ -588,7 +606,7 @@ void searchForOccupiedSquares(int filter) {
   // Reset the occupancy squares data.
   Globals::opponent_occupancy.clear();
 
-  for (int t_square = 0; t_square < 64; ++t_square) {
+  for (int t_square = 0; t_square < Bitboard::NUM_OF_SQUARES; ++t_square) {
     const int piece_color = Bitboard::getColor(Globals::bitboard[t_square]);
 
     if ((filter & PAWN_OCCUPIED_SQUARES_MAP && !Bitboard::isPawn(Globals::bitboard[t_square])) ||
@@ -676,6 +694,15 @@ std::vector<LegalMove>& generateLegalMoves(const bool only_captures) {
 }
 
 const bool isInsufficientMaterial() {
+  // If there are pawns, then it is not insufficient due to pawn promotion.
+  const int pawn_count =
+      std::count_if(Globals::bitboard.begin(), Globals::bitboard.end(),
+                    [](const int piece) -> bool { return Bitboard::isPawn(piece); });
+
+  if (pawn_count > 0) {
+    return false;
+  }
+
   const int KING_VALUE = Evaluation::getPieceValue(Bitboard::Pieces::K);
   const int BISHOP_VALUE = Evaluation::getPieceValue(Bitboard::Pieces::B);
 
@@ -698,16 +725,49 @@ const bool isInsufficientMaterial() {
   return (white_piece_value + black_piece_value <= (2 * KING_VALUE) + BISHOP_VALUE);
 }
 
+inline const bool noMoreLegalMove() {
+  return Globals::legal_moves.size() <= 0U;
+}
+
 const bool isInTerminalCondition() {
-  return Globals::legal_moves.size() <= 0U || isInsufficientMaterial();
+  // The game must be terminated if it is stalemate or checkmate.
+  // We must also check for material sufficiency and threefold repetition.
+
+  return noMoreLegalMove() || isInsufficientMaterial() || isThreefoldRepetition();
 }
 
 const bool isCheckmate() {
+  // If there is no more legal moves and the king is in check. Then
+  // it must be checkmate.
+
   Globals::is_in_check = isInCheck();
-  return Globals::is_in_check && isInTerminalCondition();
+  return Globals::is_in_check && noMoreLegalMove();
 }
 
 const bool isStalemate() {
-  return !isInCheck() && isInTerminalCondition();
+  // If there are no more legal moves and the king is not in check.
+  // Then it must be stalemate.
+
+  return !isInCheck() && noMoreLegalMove();
 }
+
+const bool isFiftyMoveRule() {
+  return Globals::halfmove_clock >= HALFMOVE_CLOCK_THRESHOLD;
+}
+
+const bool isThreefoldRepetition() {
+  std::unordered_map<std::uint64_t, int> position_occurrences;
+
+  // Count the occurrences of each position
+  std::for_each(
+      Globals::position_history.begin(), Globals::position_history.end(),
+      [&position_occurrences](const std::uint64_t& hash) { ++position_occurrences[hash]; });
+
+  // Check if any position has occurred three times
+  auto it = std::find_if(position_occurrences.begin(), position_occurrences.end(),
+                         [=](const auto& entry) { return entry.second >= 3; });
+
+  return it != position_occurrences.end();
+}
+
 };  // namespace MoveGenerator

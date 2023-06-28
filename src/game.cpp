@@ -4,7 +4,6 @@ using namespace Globals;
 
 Game::Game()
     : m_running(true),
-      m_interface(std::make_unique<Interface>()),
       m_fen_parser(FenParser::getInstance()),
       m_console(GetStdHandle(STD_OUTPUT_HANDLE)),
       m_show_occupied_squares(false) {
@@ -30,6 +29,7 @@ C: Reset the board to the initial position.
 O: Reveal the occupied/controlled squares of the adversary. 
 (toggle)
 P: Go to the previous move.
+E: Toggle evaluation bar.
 ----------------------------------)"
             << "\n\n\n";
 }
@@ -42,209 +42,7 @@ Game::~Game() {
   SDL_Quit();
   Mix_Quit();
   IMG_Quit();
-}
-
-void Game::playRandomly() {
-  if (Globals::side & Bitboard::Sides::WHITE) {
-    return;
-  }
-
-  move_delay++;
-
-  if (move_delay >= 30) {
-    MoveGenerator::generateLegalMoves();
-
-    if (game_state & GameState::DRAW || game_state & GameState::CHECKMATE) {
-      resetBoard();
-
-      return;
-    }
-
-    int random = rand() % (static_cast<int>(Globals::legal_moves.size()));
-
-    if (Globals::legal_moves[random].x & Bitboard::Squares::no_sq) {
-      playRandomly();
-      return;
-    }
-
-    //En passant is forced.
-    if (!(Globals::en_passant & Bitboard::Squares::no_sq) &&
-        Globals::en_passant_legal_move_index >= 0) {
-      random = Globals::en_passant_legal_move_index;
-    }
-
-    m_interface->drop(Globals::legal_moves[random].x, Globals::legal_moves[random].y,
-                      SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
-
-    move_delay = 0;
-  }
-}
-
-int Game::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
-  const int perspective = is_maximizing ? 1 : -1;
-
-  if (depth == 0) {
-    // Evaluation for leaf nodes
-    return Evaluation::evaluateFactors() * perspective;
-  }
-
-  const std::vector<LegalMove> legal_moves_copy = moveOrdering();
-
-  if (MoveGenerator::isCheckmate()) {
-    if (Globals::side == Bitboard::Sides::WHITE) {
-      return INT_MIN + depth;  // Black has won
-    } else {
-      return INT_MAX - depth;  // White has won
-    }
-  }
-
-  if (is_maximizing) {
-    int maxEval = INT_MIN;
-
-    for (const LegalMove& move : legal_moves_copy) {
-      const auto& move_data = MoveGenerator::makeMove(move);
-
-      side ^= 0b11;
-
-      int score = 0;
-
-      if (MoveGenerator::isCheckmate()) {
-        score = INT_MAX;
-      } else {
-        score = minimaxSearch(depth - 1, alpha, beta, false);
-      }
-
-      side ^= 0b11;
-
-      MoveGenerator::unmakeMove(move, move_data);
-
-      maxEval = std::max(score, maxEval);
-      alpha = std::max(alpha, maxEval);
-
-      if (alpha >= beta) {
-        break;  // Alpha-beta pruning
-      }
-    }
-
-    return maxEval;
-  } else {
-    int minEval = INT_MAX;
-
-    for (const LegalMove& move : legal_moves_copy) {
-      const auto& move_data = MoveGenerator::makeMove(move);
-
-      side ^= 0b11;
-
-      int score = 0;
-
-      if (MoveGenerator::isCheckmate()) {
-        score = INT_MIN;
-      } else {
-        score = minimaxSearch(depth - 1, alpha, beta, true);
-      }
-
-      side ^= 0b11;
-
-      MoveGenerator::unmakeMove(move, move_data);
-
-      minEval = std::min(score, minEval);
-      beta = std::min(beta, minEval);
-
-      if (alpha >= beta) {
-        break;  // Alpha-beta pruning
-      }
-    }
-
-    return minEval;
-  }
-}
-
-const std::vector<LegalMove>& Game::moveOrdering() {
-  std::vector<LegalMove>& moves = MoveGenerator::generateLegalMoves();
-
-  for (LegalMove& move : moves) {
-    const int move_piece_type = Globals::bitboard[move.y];
-    const int target_piece_type = Globals::bitboard[move.x];
-
-    if (target_piece_type != Bitboard::Pieces::e) {
-      move.score = 10 * Evaluation::getPieceValue(target_piece_type) -
-                   Evaluation::getPieceValue(move_piece_type);
-    }
-
-    //Look for pawn promotion.
-    if (Bitboard::isPawn(move_piece_type) &&
-        move.x >> 3 == (7 * (Bitboard::getColor(move_piece_type) & 0b01))) {
-      move.score += 900;  //Due to auto-queen.
-    }
-
-    //It's usually a bad idea to put a valuable piece in a pawn attack.
-    MoveGenerator::searchForOccupiedSquares(MoveGenerator::PAWN_OCCUPIED_SQUARES_MAP);
-
-    auto attackedByPawn = [move_piece_type, &move](const SDL_Point& occupied_square) {
-      return occupied_square.x == move.x;
-    };
-
-    const bool will_pawn_capture = std::any_of(Globals::opponent_occupancy.begin(),
-                                               Globals::opponent_occupancy.end(), attackedByPawn);
-
-    if (will_pawn_capture) {
-      //Penalty for moving squares to attacked squares.
-      move.score -= Evaluation::PAWN_CAPTURE_PENALTY;
-    }
-
-    //Evaluate piece square tables.
-    move.score += 10 * Evaluation::getSquareValue(Globals::side, move.x, move_piece_type);
-
-    MoveGenerator::searchForOccupiedSquares();
-  }
-
-  std::sort(moves.begin(), moves.end(), [](const LegalMove& a, const LegalMove& b) {
-    return a.score > b.score;  // Sort in descending order
-  });
-
-  return moves;
-}
-
-void Game::playBestMove(int depth) {
-  if (Globals::side & Bitboard::Sides::WHITE) {
-    return;
-  }
-
-  move_delay++;
-
-  if (move_delay < 5 || MoveGenerator::isInTerminalCondition()) {
-    return;
-  }
-
-  is_calculating = true;
-
-  const std::vector<LegalMove> legal_moves_copy = MoveGenerator::generateLegalMoves();
-
-  int best_score = INT_MIN;
-  LegalMove best_move = legal_moves_copy.back();
-
-  for (const LegalMove& move : legal_moves_copy) {
-    const auto& move_data = MoveGenerator::makeMove(move);
-
-    side ^= 0b11;
-
-    int score = -minimaxSearch(depth - 1, INT_MIN, INT_MAX, true);
-
-    if (score > best_score) {
-      best_score = score;
-      best_move = move;
-    }
-
-    MoveGenerator::unmakeMove(move, move_data);
-    side ^= 0b11;
-  }
-
-  m_interface->drop(best_move.x, best_move.y, SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
-
-  move_delay = 0;
-
-  is_calculating = false;
-}
+};
 
 void Game::init(const int width, const int height) {
   SDL_Init(SDL_INIT_EVERYTHING);
@@ -476,7 +274,7 @@ void Game::render() {
 }
 
 void Game::resetBoard() {
-  std::cout << "\nRestoring initial position... Please wait\n";
+  std::cout << "\n\nRestoring initial position... Please wait\n\n";
 
   move_bitset.reset();
   opponent_occupancy.clear();
@@ -484,11 +282,18 @@ void Game::resetBoard() {
   //Clear the moves recorded from the previous game.
   ply_array.clear();
   move_squares.clear();
+  move_hints.clear();
+
+  position_history.clear();
 
   //Reset every data.
   is_in_check = false;
 
   square_of_king_in_check = Bitboard::Squares::no_sq;
+
+  side = 0;
+  move_delay = 0;
+  time = 0;
 
   m_fen_parser.init();
 
@@ -508,7 +313,7 @@ void Game::resetBoard() {
   game_state = GameState::OPENING;
 }
 
-void Game::events() {
+void Game::events(bool is_ai_computing) {
   SDL_Event event;
 
   int new_square;
@@ -520,7 +325,8 @@ void Game::events() {
         break;
 
       case SDL_MOUSEMOTION:
-        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE) {
+        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE ||
+            is_ai_computing) {
           break;
         }
 
@@ -531,8 +337,10 @@ void Game::events() {
         break;
 
       case SDL_MOUSEBUTTONDOWN:
-        //If the game already ended, then we should disable board interaction.
-        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE) {
+        // If the game already ended, then we should disable board interaction.
+        // We should also disable interaction if the AI is currently evaluating positions.
+        if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE ||
+            is_ai_computing) {
           break;
         }
 
@@ -557,7 +365,7 @@ void Game::events() {
         }
 
         //If there is a selected square, then drop it to the new square.
-        m_interface->drop(new_square, selected_square, SHOULD_EXCHANGE_TURN);
+        Globals::interface_handler->drop(new_square, selected_square, SHOULD_EXCHANGE_TURN);
 
         //If it's not checkmate yet or draw.
         // if (game_state & GameState::OPENING) {
@@ -571,12 +379,12 @@ void Game::events() {
 
       case SDL_MOUSEBUTTONUP:
         if (Globals::game_state & GameState::DRAW || Globals::game_state & GameState::CHECKMATE ||
-            !is_mouse_down || selected_square & Bitboard::no_sq) {
+            !is_mouse_down || selected_square & Bitboard::no_sq || is_ai_computing) {
           break;
         }
 
         new_square = Interface::AABB(event.button.y, event.button.x);
-        m_interface->drop(new_square, selected_square, SHOULD_EXCHANGE_TURN);
+        Globals::interface_handler->drop(new_square, selected_square, SHOULD_EXCHANGE_TURN);
 
         Globals::move_hints.clear();
         Globals::selected_square = Bitboard::no_sq;
@@ -585,8 +393,18 @@ void Game::events() {
 
         break;
       case SDL_KEYDOWN:
-        if (event.key.keysym.sym == SDLK_p) {
-          playBestMove(2);
+        if (event.key.keysym.sym == SDLK_p && !is_ai_computing) {
+          Globals::move_delay = INT_MAX;
+          playBestMove(3, Bitboard::Sides::WHITE | Bitboard::Sides::BLACK);
+        }
+
+        if (event.key.keysym.sym == SDLK_e) {
+          static bool show_eval = false;
+
+          show_eval ^= true;
+
+          SDL_SetWindowPosition(Globals::window, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED);
+          SDL_SetWindowSize(Globals::window, 600 + (show_eval * 25), 600);
         }
 
         if (event.key.keysym.sym == SDLK_r && selected_square != Bitboard::Squares::no_sq) {
@@ -617,7 +435,7 @@ void Game::events() {
           show_legal_moves ^= true;
         }
 
-        if (event.key.keysym.sym == SDLK_c) {
+        if (event.key.keysym.sym == SDLK_c && !is_ai_computing) {
           resetBoard();
         }
 
@@ -626,7 +444,7 @@ void Game::events() {
         }
 
         if (event.key.keysym.sym == SDLK_u) {
-          m_interface->undo();
+          Globals::interface_handler->undo();
         }
 
         break;

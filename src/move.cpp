@@ -93,10 +93,12 @@ auto makeMove(const LegalMove& move) -> const ImaginaryMove {
 
   const int rank = move.x >> 3;
 
-  if (Bitboard::isPawn(old_piece) && rank == (team & 0b01) * 7) {
+  const int pawn_color = team & 0b10 ? Bitboard::Pieces::Q : Bitboard::Pieces::q;
+  const int back_rank = team & 0b01 ? Bitboard::BOARD_SIZE : 0;
+
+  if (Bitboard::isPawn(old_piece) && rank == back_rank) {
     //Auto queen implementation.
-    Globals::bitboard[move.x] =
-        ((team & 0b10) * Bitboard::Pieces::Q) | ((~team & 0b10) * Bitboard::Pieces::q);
+    Globals::bitboard[move.x] = pawn_color;
   }
 
   if (is_en_passant) {
@@ -364,6 +366,33 @@ const std::vector<int>& getDistToEdge(const SDL_Point pos) {
   return Globals::max_squares;
 }
 
+void precomputeMaxSquaresToEdge() {
+  Globals::precomputed_max_squares_to_edge.resize(64ULL, std::vector<int>(8ULL));
+
+  for (int file = 0; file < Bitboard::BOARD_SIZE + 1; ++file) {
+    for (int rank = 0; rank < Bitboard::BOARD_SIZE + 1; ++rank) {
+      const SDL_Point pos = {file, rank};
+
+      const int right = Bitboard::MAX_SQUARES_TO_EDGE - pos.x;
+      const int left = pos.x + 1;
+      const int top = pos.y + 1;
+      const int bottom = Bitboard::MAX_SQUARES_TO_EDGE - pos.y;
+
+      Globals::precomputed_max_squares_to_edge.at((rank << 3) + file) = {
+          right,   // Right
+          left,    // Left
+          bottom,  // Bottom
+          top,     // Top
+
+          std::min(bottom, right),  // South East
+          std::min(bottom, left),   // South West
+          std::min(top, right),     // North East
+          std::min(top, left),      // North West
+      };
+    }
+  }
+}
+
 void generateSlidingMoves(int t_square, std::function<void(int, int)> moveFunc,
                           bool for_occupied_square) {
   const int sliding_piece = Globals::bitboard[t_square];
@@ -374,11 +403,8 @@ void generateSlidingMoves(int t_square, std::function<void(int, int)> moveFunc,
   const int start_index = is_bishop * 4;
   const int end_index = (is_rook * 4) | (!is_rook * 8);
 
-  const SDL_Point& pos = Bitboard::squareToCoord(t_square);
-  getDistToEdge(pos);
-
   for (int i = start_index; i < end_index; ++i) {
-    const int direction_max_squares = Globals::max_squares[i];
+    const int direction_max_squares = Globals::precomputed_max_squares_to_edge[t_square][i];
 
     for (int target_sq = 1; target_sq < direction_max_squares; target_sq++) {
 
@@ -655,13 +681,14 @@ const bool isInCheck() {
                      willCaptureKing);
 }
 
-void filterPseudoLegalMoves(std::vector<LegalMove>& hint_square_array) {
+void filterPseudoLegalMoves(std::vector<LegalMove>& hint_square_array, bool only_captures) {
   const std::vector<LegalMove> legal_moves_copy = hint_square_array;
 
   hint_square_array.clear();  // Clear the vector to rebuild it with valid moves.
 
   for (const LegalMove& move : legal_moves_copy) {
-    if (move.x & Bitboard::Squares::no_sq) {
+    if (move.x & Bitboard::Squares::no_sq ||
+        (only_captures && Globals::bitboard[move.x] == Bitboard::Pieces::e)) {
       continue;
     }
 
@@ -688,7 +715,7 @@ std::vector<LegalMove>& generateLegalMoves(const bool only_captures) {
     searchPseudoLegalMoves(i, &addMove, false, true, only_captures);
   }
 
-  filterPseudoLegalMoves(Globals::legal_moves);
+  filterPseudoLegalMoves(Globals::legal_moves, only_captures);
 
   return Globals::legal_moves;
 }

@@ -10,12 +10,47 @@ auto game_ptr = std::make_unique<Game>();
 // Flag to indicate whether the AI thread is currently computing
 bool is_ai_computing = false;
 
+void testMoveGenerationHelper(int depth) {
+  const std::vector<LegalMove> moves = MoveGenerator::generateLegalMoves(false);
+
+  if (depth <= 0) {
+    return;
+  }
+
+  for (const auto& move : moves) {
+    const ImaginaryMove& move_data = MoveGenerator::makeMove(move);
+    Globals::side ^= 0b11;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    testMoveGenerationHelper(depth - 1);
+
+    MoveGenerator::unmakeMove(move, move_data);
+    Globals::side ^= 0b11;
+  }
+}
+
+void testMoveGeneration(Game* game_ptr) {
+  while (game_ptr->isRunning()) {
+    is_ai_computing = true;
+
+    testMoveGenerationHelper(2);
+
+    is_ai_computing = false;
+
+    // Pause for 1 second before starting the next iteration
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+
+    break;
+  }
+}
+
 void aiThreadFunction(Game* game_ptr) {
   while (game_ptr->isRunning()) {
     // Set the flag to indicate that the AI thread is computing
     is_ai_computing = true;
 
-    game_ptr->playBestMove(3, Bitboard::Sides::WHITE);
+    game_ptr->playBestMove(2, Bitboard::Sides::WHITE);
 
     // Reset the flag once the AI computation is done
     is_ai_computing = false;
@@ -28,7 +63,7 @@ int main(int argc, char* argv[]) {
   bool show_evaluation_bar = false;
 
   for (int i = 1; i < argc; ++i) {
-    if (std::string(argv[i]) == "--show_eval") {
+    if (std::string(argv[i]) == "--show-eval") {
       show_evaluation_bar = true;
       break;
     }

@@ -93,6 +93,8 @@ namespace MoveGenerator
 
     const std::vector<int> &getDistToEdge(const SDL_Point pos);
 
+    void precomputeMaxSquaresToEdge();
+
     void generateSlidingMoves(int t_square, std::function<void(int, int)> moveFunc, bool for_occupied_square);
 
     // This is used to check for pieces within the home rank from the king or queen side.
@@ -120,7 +122,7 @@ namespace MoveGenerator
 
     const bool isInCheck();
 
-    void filterPseudoLegalMoves(std::vector<LegalMove> &hint_square_array);
+    void filterPseudoLegalMoves(std::vector<LegalMove> &hint_square_array, bool only_captures = false);
 
     std::vector<LegalMove> &generateLegalMoves(const bool only_captures = false);
 

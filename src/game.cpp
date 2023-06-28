@@ -87,6 +87,8 @@ void Game::init(const int width, const int height) {
     }
   }
 
+  MoveGenerator::precomputeMaxSquaresToEdge();
+
   //By default, it's white to move.
   side |= Bitboard::WHITE;
 
@@ -106,7 +108,6 @@ void Game::init(const int width, const int height) {
   }
 
   //Settings::init();
-
   MoveGenerator::renderMove(-1, -1);
 }
 
@@ -395,7 +396,7 @@ void Game::events(bool is_ai_computing) {
       case SDL_KEYDOWN:
         if (event.key.keysym.sym == SDLK_p && !is_ai_computing) {
           Globals::move_delay = INT_MAX;
-          playBestMove(3, Bitboard::Sides::WHITE | Bitboard::Sides::BLACK);
+          playBestMove(2, Bitboard::Sides::WHITE | Bitboard::Sides::BLACK);
         }
 
         if (event.key.keysym.sym == SDLK_e) {

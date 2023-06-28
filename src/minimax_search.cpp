@@ -39,9 +39,9 @@ int Search::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
 
       score = minimaxSearch(depth - 1, alpha, beta, false);
 
-      Globals::side ^= 0b11;
-
       MoveGenerator::unmakeMove(move, move_data);
+
+      Globals::side ^= 0b11;
 
       maxEval = std::max(score, maxEval);
       alpha = std::max(alpha, maxEval);
@@ -64,9 +64,9 @@ int Search::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
 
       score = minimaxSearch(depth - 1, alpha, beta, true);
 
-      Globals::side ^= 0b11;
-
       MoveGenerator::unmakeMove(move, move_data);
+
+      Globals::side ^= 0b11;
 
       minEval = std::min(score, minEval);
       beta = std::min(beta, minEval);
@@ -172,10 +172,9 @@ void Search::playBestMove(int depth, const unsigned int human_player) {
 
   for (const LegalMove& move : legal_moves_copy) {
     const auto& move_data = MoveGenerator::makeMove(move);
-
     Globals::side ^= 0b11;
 
-    int score = -minimaxSearch(depth - 1, INT_MIN, INT_MAX, true);
+    int score = -minimaxSearch(depth, INT_MIN, INT_MAX, true);
 
     if (score > best_score) {
       best_score = score;

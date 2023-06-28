@@ -104,6 +104,7 @@ namespace Globals
 
     extern std::vector<int> opponent_pseudolegal_moves;
     extern std::vector<int> max_squares;
+    extern std::vector<std::vector<int>> precomputed_max_squares_to_edge;
     extern std::bitset<64U> move_bitset;
 
     extern std::vector<std::uint64_t> position_history;

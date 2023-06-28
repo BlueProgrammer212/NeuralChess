@@ -66,6 +66,8 @@ SDL_Point castling_square = {Squares::no_sq, Squares::no_sq};
 
 std::vector<int> max_squares = {};
 
+std::vector<std::vector<int>> precomputed_max_squares_to_edge = {};
+
 //Keep track of old moves to generate old moves.
 std::vector<Ply> ply_array = {};
 
@@ -112,4 +114,5 @@ std::shared_ptr<ZobristHashing> zobrist_hashing = std::make_shared<ZobristHashin
 std::shared_ptr<Interface> interface_handler = std::make_shared<Interface>();
 
 SDL_Point mouse_coord = {0, 0};
+
 }  // namespace Globals

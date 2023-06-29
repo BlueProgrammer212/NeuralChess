@@ -120,8 +120,7 @@ namespace Bitboard
 
     inline int getColor(int type)
     {
-        const bool is_black = type > 6;
-        return (is_black * 0b01) | (!is_black * 0b10);
+        return ((type > 6) ? 0b01 : 0b10);
     }
 
     // Increment the ranks for the LSF. Add 8 to the LSF depending on how much ranks.

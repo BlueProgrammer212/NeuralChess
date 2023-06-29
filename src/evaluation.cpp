@@ -23,7 +23,7 @@ const std::array<int, Bitboard::NUM_OF_SQUARES>& getPieceSquareTable(int type) {
 int getSquareValue(const int side, int square, const int type) {
   const int color = Bitboard::getColor(type);
 
-  if (color & Bitboard::Sides::WHITE) {
+  if (color & Bitboard::Sides::BLACK) {
     square = Bitboard::NUM_OF_SQUARES - square;
   }
 

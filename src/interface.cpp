@@ -5,8 +5,6 @@ using namespace Globals;
 Interface::Interface() : mouse_position_x(0), mouse_position_y(0) {}
 
 Interface::~Interface() {
-  //Clear the precalculated SDL_Rect vector.
-  quad_vector.clear();
 }
 
 //TODO: Extract some regions into functions to increase clarity.

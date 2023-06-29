@@ -95,6 +95,8 @@ namespace MoveGenerator
 
     void precomputeMaxSquaresToEdge();
 
+    void generatePawnMoves(const int t_square, const int team, std::function<void(int, int)> moveFunc);
+
     void generateSlidingMoves(int t_square, std::function<void(int, int)> moveFunc, bool for_occupied_square);
 
     // This is used to check for pieces within the home rank from the king or queen side.

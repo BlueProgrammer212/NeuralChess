@@ -2,3 +2,6 @@
 dependencies/
 bin/
 bin/debug/
+
+#This directory is for the Intel VTune Profiler.
+NeuralChess/

@@ -5,8 +5,6 @@
 
 #include "game.hpp"
 
-auto game_ptr = std::make_unique<Game>();
-
 // Flag to indicate whether the AI thread is currently computing
 bool is_ai_computing = false;
 
@@ -34,7 +32,7 @@ void testMoveGeneration(Game* game_ptr) {
   while (game_ptr->isRunning()) {
     is_ai_computing = true;
 
-    testMoveGenerationHelper(2);
+    testMoveGenerationHelper(4);
 
     is_ai_computing = false;
 
@@ -50,7 +48,7 @@ void aiThreadFunction(Game* game_ptr) {
     // Set the flag to indicate that the AI thread is computing
     is_ai_computing = true;
 
-    game_ptr->playBestMove(2, Bitboard::Sides::WHITE);
+    game_ptr->playBestMove(3, Bitboard::Sides::WHITE);
 
     // Reset the flag once the AI computation is done
     is_ai_computing = false;
@@ -68,6 +66,8 @@ int main(int argc, char* argv[]) {
       break;
     }
   }
+
+  auto game_ptr = std::make_unique<Game>();
 
   game_ptr->init(600 + (show_evaluation_bar * 25), 600);
 
@@ -102,8 +102,6 @@ int main(int argc, char* argv[]) {
   std::cout << "\n\nWaiting for the AI thread to finish. Please wait.\n";
 
   ai_thread.join();
-
-  game_ptr->destroy();
 
   return 0;
 }

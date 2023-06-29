@@ -23,13 +23,13 @@ Game::Game()
 
   std::cout << R"(
 ----------KEY SHORTCUTS-----------
-P: Run perft test. 
-R: Remove the selected piece.
-C: Reset the board to the initial position.
-O: Reveal the occupied/controlled squares of the adversary. 
+Ctrl + P: Run perft test. 
+Ctrl + R: Remove the selected piece.
+Ctrl + C: Reset the board to the initial position.
+Ctrl + O: Reveal the occupied/controlled squares of the adversary. 
 (toggle)
-P: Go to the previous move.
-E: Toggle evaluation bar.
+Ctrl + E: Toggle evaluation bar.
+U: Go to the previous move.
 ----------------------------------)"
             << "\n\n\n";
 }
@@ -399,15 +399,6 @@ void Game::events(bool is_ai_computing) {
           playBestMove(2, Bitboard::Sides::WHITE | Bitboard::Sides::BLACK);
         }
 
-        if (event.key.keysym.sym == SDLK_e) {
-          static bool show_eval = false;
-
-          show_eval ^= true;
-
-          SDL_SetWindowPosition(Globals::window, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED);
-          SDL_SetWindowSize(Globals::window, 600 + (show_eval * 25), 600);
-        }
-
         if (event.key.keysym.sym == SDLK_r && selected_square != Bitboard::Squares::no_sq) {
           Globals::bitboard[selected_square] = Bitboard::e;
 
@@ -424,20 +415,24 @@ void Game::events(bool is_ai_computing) {
           Globals::move_hints.clear();
         }
 
-        if (event.key.keysym.sym == SDLK_o) {
-          m_show_occupied_squares ^= true;
-        }
+        if (event.key.keysym.mod & KMOD_CTRL) {
+          if (event.key.keysym.sym == SDLK_o) {
+            m_show_occupied_squares ^= true;
+          } else if (event.key.keysym.sym == SDLK_h) {
+            display_legal_move_hints ^= true;
+          } else if (event.key.keysym.sym == SDLK_l) {
+            show_legal_moves ^= true;
+          } else if (event.key.keysym.sym == SDLK_c && !is_ai_computing) {
+            resetBoard();
+          } else if (event.key.keysym.sym == SDLK_e) {
+            static bool show_eval = false;
+            show_eval ^= true;
 
-        if (event.key.keysym.sym == SDLK_h) {
-          display_legal_move_hints ^= true;
-        }
-
-        if (event.key.keysym.sym == SDLK_l) {
-          show_legal_moves ^= true;
-        }
-
-        if (event.key.keysym.sym == SDLK_c && !is_ai_computing) {
-          resetBoard();
+            SDL_SetWindowPosition(Globals::window, SDL_WINDOWPOS_UNDEFINED,
+                                  SDL_WINDOWPOS_UNDEFINED);
+           
+            SDL_SetWindowSize(Globals::window, 600 + (show_eval * 25), 600);
+          }
         }
 
         if (Globals::game_state & GameState::DRAW) {

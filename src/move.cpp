@@ -19,11 +19,8 @@ void renderMove(const int t_square, const int old_square) noexcept {
 
 //Get the total squares travelled by the piece.
 int getMaxDeltaSquares(const int delta_square, const int square_prime) {
-  const auto current_pos = Bitboard::squareToCoord(square_prime);
-  const auto dt_square_pos = Bitboard::squareToCoord(delta_square);
-
-  const int delta_x = std::abs(dt_square_pos.x - current_pos.x);
-  const int delta_y = std::abs(dt_square_pos.y - current_pos.y);
+  const int delta_x = std::abs((delta_square & 7) - (square_prime & 7));
+  const int delta_y = std::abs((delta_square >> 3) - (square_prime >> 3));
 
   return std::max(delta_x, delta_y);
 }
@@ -327,8 +324,8 @@ void generatePawnCaptures(int t_square, const std::function<void(int, int)> move
                           bool for_occupied_squares) {
   const int color = Bitboard::getColor(Globals::bitboard[t_square]);
 
-  const int direction_offset_start = ((color - 1) << 1) + 4;
-  const int direction_offset_end = ((color - 1) << 1) + 6;
+  const int direction_offset_start = (color - 1) * 2 + 4;
+  const int direction_offset_end = (color - 1) * 2 + 6;
 
   for (int i = direction_offset_start; i < direction_offset_end; ++i) {
     const int dt_square = t_square + OFFSETS[i];
@@ -393,6 +390,22 @@ void precomputeMaxSquaresToEdge() {
   }
 }
 
+void generatePawnMoves(const int t_square, const int team, std::function<void(int, int)> moveFunc) {
+  const int pawn_range = (Globals::move_bitset[t_square] ? 2 : 3);
+  const int pawn_rank_increment = team & 0b10 ? -1 : 1;
+
+  for (int i = 1; i < pawn_range; ++i) {
+    int target_square = Bitboard::addRank(t_square, i * pawn_rank_increment);
+
+    // Halt the iteration if there is an intercepting piece.
+    if (notEmpty(target_square)) {
+      break;
+    }
+
+    moveFunc(target_square, t_square);
+  }
+}
+
 void generateSlidingMoves(int t_square, std::function<void(int, int)> moveFunc,
                           bool for_occupied_square) {
   const int sliding_piece = Globals::bitboard[t_square];
@@ -400,8 +413,8 @@ void generateSlidingMoves(int t_square, std::function<void(int, int)> moveFunc,
   const bool is_bishop = Bitboard::isBishop(sliding_piece);
   const bool is_rook = Bitboard::isRook(sliding_piece);
 
-  const int start_index = is_bishop * 4;
-  const int end_index = (is_rook * 4) | (!is_rook * 8);
+  const int start_index = is_bishop ? 4 : 0;
+  const int end_index = is_rook ? 4 : 8;
 
   for (int i = start_index; i < end_index; ++i) {
     const int direction_max_squares = Globals::precomputed_max_squares_to_edge[t_square][i];
@@ -420,7 +433,7 @@ void generateSlidingMoves(int t_square, std::function<void(int, int)> moveFunc,
             (Globals::side & Bitboard::Sides::WHITE ? Bitboard::Pieces::K : Bitboard::Pieces::k);
 
         //Prevent the opponent king from going to the check ray.
-        bool is_opponent_king =
+        const bool is_opponent_king =
             (target_sq_type == king_color && Bitboard::isKing(Globals::bitboard[dt_square]));
 
         if (!is_opponent_king || !for_occupied_square) {
@@ -570,18 +583,12 @@ void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> mo
   const int type = Globals::bitboard[t_square];
   const int team = Bitboard::getColor(type);
 
-  const bool check_side = (for_occupied_squares && team & Globals::side) ||
-                          (!for_occupied_squares && !(team & Globals::side));
+  const bool check_side = for_occupied_squares ? (team & Globals::side) : !(team & Globals::side);
 
   // Skip empty pieces.
   if (type == Bitboard::Pieces::e || check_side) {
     return;
   }
-
-  const int pawn_range = (Globals::move_bitset[t_square] ? 2 : 3);
-  const int pawn_rank_increment = team & 0b10 ? -1 : 1;
-
-  int target_square = 0;
 
   // Generate moves for various types of piece.
   switch (type) {
@@ -594,20 +601,11 @@ void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> mo
         break;
       }
 
-      for (int i = 1; i < pawn_range; ++i) {
-        target_square = Bitboard::addRank(t_square, i * pawn_rank_increment);
-
-        // Halt the iteration if there is an intercepting piece.
-        if (notEmpty(target_square)) {
-          break;
-        }
-
-        moveFunc(target_square, t_square);
-      }
-
+      generatePawnMoves(t_square, team, moveFunc);
       enPassant(t_square, moveFunc);
 
       break;
+      
     case Bitboard::Pieces::N:
     case Bitboard::Pieces::n:
       generateKnightMoves(t_square, moveFunc, for_occupied_squares);
@@ -621,10 +619,9 @@ void searchPseudoLegalMoves(const int t_square, std::function<void(int, int)> mo
         generateCastlingMove(t_square, moveFunc);
       }
       break;
-  }
 
-  if (Bitboard::isSlidingPiece(type)) {
-    generateSlidingMoves(t_square, moveFunc, for_occupied_squares);
+    default:
+      generateSlidingMoves(t_square, moveFunc, for_occupied_squares);
   }
 }
 
@@ -640,9 +637,9 @@ void searchForOccupiedSquares(int filter) {
       continue;
     }
 
-    bool which_side =
-        (piece_color & Globals::side && filter & OPPONENT_OCCUPIED_SQUARES_MAP) ||
-        (!(piece_color & Globals::side) && filter & PLAYER_TO_MOVE_OCCUPIED_SQUARES_MAP);
+    const bool which_side =
+        ((piece_color & Globals::side) && (filter & OPPONENT_OCCUPIED_SQUARES_MAP)) ||
+        (!(piece_color & Globals::side) && (filter & PLAYER_TO_MOVE_OCCUPIED_SQUARES_MAP));
 
     if (Globals::bitboard[t_square] == Bitboard::Pieces::e || which_side) {
       continue;
@@ -706,7 +703,7 @@ void filterPseudoLegalMoves(std::vector<LegalMove>& hint_square_array, bool only
 std::vector<LegalMove>& generateLegalMoves(const bool only_captures) {
   Globals::legal_moves.clear();
 
-  for (int i = 0; i < 64; ++i) {
+  for (int i = 0; i < Bitboard::NUM_OF_SQUARES; ++i) {
     if (Globals::bitboard[i] == Bitboard::Pieces::e ||
         !(Globals::side & Bitboard::getColor(Globals::bitboard[i]))) {
       continue;

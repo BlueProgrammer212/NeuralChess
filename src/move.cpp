@@ -560,17 +560,6 @@ void generateKingMoves(int t_square, std::function<void(int, int)> moveFunc,
     // Check if the square does not contain a friendly piece.
     const bool contains_friendly_piece = notEmpty(target_square) && !canCapture(target_square);
 
-    // Check if the square is in the occupancy square array.
-    const bool is_an_occupied_square =
-        std::any_of(Globals::opponent_occupancy.begin(), Globals::opponent_occupancy.end(),
-                    [target_square](const SDL_Point& occupied_square) {
-                      return target_square == occupied_square.x;
-                    });
-
-    if (is_an_occupied_square) {
-      continue;
-    }
-
     if ((!contains_friendly_piece || for_occupied_squares) && !is_out_of_bounds &&
         max_delta_squares == 1) {
       moveFunc(target_square, t_square);

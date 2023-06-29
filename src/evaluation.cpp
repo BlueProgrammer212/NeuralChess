@@ -121,8 +121,10 @@ const int evaluateFactors() {
 
   const int central_control_eval = (piece_square_table_white - piece_square_table_white);
 
-  return material_evaluation + (10 * mobility_evaluation) + (10 * spatial_evaluation) +
-         pawn_structure_eval + central_control_eval;
+  const int perspective = Globals::side & Bitboard::Sides::WHITE ? 1 : -1;
+
+  return (material_evaluation + (10 * mobility_evaluation) + (10 * spatial_evaluation) +
+         pawn_structure_eval + central_control_eval) * perspective;
 }
 
 // clang-format off

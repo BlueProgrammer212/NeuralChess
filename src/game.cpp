@@ -70,7 +70,7 @@ void Game::init(const int width, const int height) {
   BOX_HEIGHT = 600 / (Bitboard::BOARD_SIZE + 1);
 
   //Load the chess piece texture atlas.
-  TextureManager::LoadTexture("C:\\Users\\yayma\\Documents\\NeuralChess\\res\\atlas.png");
+  TextureManager::LoadTexture("../../res/atlas.png");
 
   SDL_RenderSetLogicalSize(renderer, width, height);
 

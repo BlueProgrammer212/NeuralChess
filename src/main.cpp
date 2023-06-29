@@ -48,7 +48,7 @@ void aiThreadFunction(Game* game_ptr) {
     // Set the flag to indicate that the AI thread is computing
     is_ai_computing = true;
 
-    game_ptr->playBestMove(3, Bitboard::Sides::WHITE);
+    game_ptr->playBestMove(2, Bitboard::Sides::WHITE);
 
     // Reset the flag once the AI computation is done
     is_ai_computing = false;

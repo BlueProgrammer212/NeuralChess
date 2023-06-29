@@ -14,6 +14,8 @@ public:
 
     const std::vector<LegalMove> &moveOrdering();
 
+    int quiescenceSearch(int alpha, int beta);
+
     int minimaxSearch(int depth, int alpha, int beta, bool is_maximizing);
     void playBestMove(int depth, const unsigned int human_player = 0b10);
 

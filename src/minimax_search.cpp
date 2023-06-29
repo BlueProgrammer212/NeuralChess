@@ -4,12 +4,17 @@ Search::Search() {}
 
 Search::~Search() {}
 
-int Search::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
-  const int perspective = is_maximizing ? 1 : -1;
+//Prevent the horizon effect by scanning every possible captures and checks.
+int Search::quiescenceSearch(int alpha, int beta) { 
+    int stand_pat = Evaluation::evaluateFactors();
+    
+    
+}
 
+int Search::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
   if (depth == 0) {
     // Evaluation for leaf nodes
-    return Evaluation::evaluateFactors() * perspective;
+    return Evaluation::evaluateFactors();
   }
 
   const std::vector<LegalMove> legal_moves_copy = moveOrdering();

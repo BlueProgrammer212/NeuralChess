@@ -11,7 +11,7 @@
                 "-pthread",
                 //Output executable file.
                 "-o",
-                "${workspaceFolder}\\bin\\debug\\NeuralChess.exe",
+                "${workspaceFolder}\\bin\\release\\NeuralChess.exe",
                 "-O3", //-O0 for debugging. -O3 for release.
                 "-g",
                 "-Wall",

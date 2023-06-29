@@ -394,11 +394,6 @@ void Game::events(bool is_ai_computing) {
 
         break;
       case SDL_KEYDOWN:
-        if (event.key.keysym.sym == SDLK_p && !is_ai_computing) {
-          Globals::move_delay = INT_MAX;
-          playBestMove(2, Bitboard::Sides::WHITE | Bitboard::Sides::BLACK);
-        }
-
         if (event.key.keysym.sym == SDLK_r && selected_square != Bitboard::Squares::no_sq) {
           Globals::bitboard[selected_square] = Bitboard::e;
 
@@ -410,6 +405,10 @@ void Game::events(bool is_ai_computing) {
           if (is_in_check) {
             audio_manager->PlayWAV("../../res/check.wav");
             square_of_king_in_check = MoveGenerator::getOwnKing();
+          }
+
+          if (MoveGenerator::isCheckmate()) {
+            std::cout << "Checkmate!\n";
           }
 
           Globals::move_hints.clear();
@@ -430,8 +429,12 @@ void Game::events(bool is_ai_computing) {
 
             SDL_SetWindowPosition(Globals::window, SDL_WINDOWPOS_UNDEFINED,
                                   SDL_WINDOWPOS_UNDEFINED);
-           
+
             SDL_SetWindowSize(Globals::window, 600 + (show_eval * 25), 600);
+          } else if (event.key.keysym.sym == SDLK_p && !is_ai_computing) {
+            is_ai_computing = true;
+            playBestMove(2, 0U);
+            is_ai_computing = false;
           }
         }
 

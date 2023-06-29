@@ -4,27 +4,72 @@ Search::Search() {}
 
 Search::~Search() {}
 
+//#define USE_QUIESCENCE_SEARCH
+
 //Prevent the horizon effect by scanning every possible captures and checks.
-int Search::quiescenceSearch(int alpha, int beta) { 
-    int stand_pat = Evaluation::evaluateFactors();
-    
-    
+//TODO: Implement delta pruning for performance optimization.
+[[nodiscard]] const int Search::quiescenceSearch(int alpha, int beta) {
+  // Perform static evaluation of the current position
+  int staticEval = Evaluation::evaluateFactors();
+
+  // Check if the position is already quiet (no capturing moves available)
+  if (staticEval >= beta) {
+    return beta;
+  }
+
+  // Update alpha with the maximum of alpha and static evaluation
+  alpha = std::max(alpha, staticEval);
+
+  // Compute the delta value for delta pruning
+  int delta = 100;  // Adjust this value based on your specific game characteristics
+
+  // Generate and evaluate capturing moves in the current position
+  std::vector<LegalMove> capturingMoves = moveOrdering(true);
+
+  for (const LegalMove& move : capturingMoves) {
+    const auto& moveData = MoveGenerator::makeMove(move);
+    Globals::side ^= 0b11;
+
+    int score = -quiescenceSearch(-beta, -alpha);
+
+    MoveGenerator::unmakeMove(move, moveData);
+    Globals::side ^= 0b11;
+
+    // Check if the score surpasses the current alpha value
+    if (score >= beta) {
+      return beta;  // Return the beta value as a cutoff
+    }
+
+    // Check if the score surpasses the current alpha value minus delta
+    if (score > alpha) {
+      alpha = score;  // Update alpha with the new score
+
+      // Check if the score surpasses beta minus delta
+      if (alpha >= beta - delta) {
+        return alpha;  // Return alpha if it is close to beta (prune further exploration)
+      }
+    }
+  }
+
+  // Return the final alpha value as the result of the quiescence search
+  return alpha;
 }
 
-int Search::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
+[[nodiscard]] int Search::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
   if (depth == 0) {
-    // Evaluation for leaf nodes
+#ifdef USE_QUIESCENCE_SEARCH
+    // Continue searching for captures or checks to prevent the
+    // horizon effect.
+    return quiescenceSearch(alpha, beta);
+#else
     return Evaluation::evaluateFactors();
+#endif
   }
 
   const std::vector<LegalMove> legal_moves_copy = moveOrdering();
 
   if (MoveGenerator::isCheckmate()) {
-    if (Globals::side == Bitboard::Sides::WHITE) {
-      return INT_MIN + depth;  // Black has won
-    } else {
-      return INT_MAX - depth;  // White has won
-    }
+      return INT_MIN + depth;
   }
 
   if (MoveGenerator::isStalemate() || MoveGenerator::isInsufficientMaterial() ||
@@ -85,8 +130,8 @@ int Search::minimaxSearch(int depth, int alpha, int beta, bool is_maximizing) {
   }
 }
 
-const std::vector<LegalMove>& Search::moveOrdering() {
-  std::vector<LegalMove>& moves = MoveGenerator::generateLegalMoves();
+const std::vector<LegalMove>& Search::moveOrdering(bool only_captures) {
+  std::vector<LegalMove>& moves = MoveGenerator::generateLegalMoves(only_captures);
 
   for (LegalMove& move : moves) {
     move.score = 0;
@@ -152,7 +197,7 @@ void Search::playRandomly() {
     }
 
     Globals::interface_handler->drop(Globals::legal_moves[random].x, Globals::legal_moves[random].y,
-                            SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
+                                     SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
 
     Globals::move_delay = 0;
   }
@@ -160,7 +205,6 @@ void Search::playRandomly() {
 
 void Search::playBestMove(int depth, const unsigned int human_player) {
   if (Globals::side & human_player) {
-    playRandomly();
     return;
   }
 
@@ -169,6 +213,8 @@ void Search::playBestMove(int depth, const unsigned int human_player) {
   if (Globals::move_delay < 3 || MoveGenerator::isInTerminalCondition()) {
     return;
   }
+
+  SDL_SetWindowTitle(Globals::window, "NeuralChess [Thinking...]");
 
   const std::vector<LegalMove> legal_moves_copy = MoveGenerator::generateLegalMoves();
 
@@ -194,4 +240,6 @@ void Search::playBestMove(int depth, const unsigned int human_player) {
                                    SHOULD_SUPRESS_HINTS | SHOULD_EXCHANGE_TURN);
 
   Globals::move_delay = 0;
+
+  SDL_SetWindowTitle(Globals::window, "NeuralChess");
 }

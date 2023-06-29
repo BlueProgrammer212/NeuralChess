@@ -119,7 +119,7 @@ const int evaluateFactors() {
   const int pawn_structure_eval = (doubled_pawn_structure_white - doubled_pawn_structure_black) +
                                   (blocked_pawns_white - blocked_pawns_black);
 
-  const int central_control_eval = (piece_square_table_white - piece_square_table_white);
+  const int central_control_eval = (piece_square_table_white - piece_square_table_black);
 
   const int perspective = Globals::side & Bitboard::Sides::WHITE ? 1 : -1;
 
